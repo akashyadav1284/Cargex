@@ -7,6 +7,7 @@ const {
   getAllUsers, getUserById, blockUser, deleteUser,
   getAllVehicleTypes, createVehicleType, updateVehiclePricing, toggleVehicleStatus,
   setSurgeMultiplier,
+  createAgency, getAllAgencies, getAgencyById, updateAgency, deleteAgency,
 } = require('../controllers/adminController');
 const { protectAdmin } = require('../middleware/authMiddleware');
 
@@ -36,6 +37,13 @@ router.get('/users',                    protectAdmin, getAllUsers);
 router.get('/users/:id',                protectAdmin, getUserById);
 router.put('/users/:id/block',          protectAdmin, blockUser);
 router.delete('/users/:id',             protectAdmin, deleteUser);
+
+// Agencies
+router.post('/agencies',                protectAdmin, createAgency);
+router.get('/agencies',                 protectAdmin, getAllAgencies);
+router.get('/agencies/:id',             protectAdmin, getAgencyById);
+router.put('/agencies/:id',             protectAdmin, updateAgency);
+router.delete('/agencies/:id',          protectAdmin, deleteAgency);
 
 // Vehicles
 router.get('/vehicles',                 protectAdmin, getAllVehicleTypes);

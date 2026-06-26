@@ -13,6 +13,7 @@ const NAV = [
   { href: '/dashboard/drivers/pending',icon:'📝', label: 'New Drivers' },
   { href: '/dashboard/drivers',      icon: '🚚', label: 'Drivers' },
   { href: '/dashboard/users',        icon: '👤', label: 'Users' },
+  { href: '/dashboard/agencies',     icon: '🏢', label: 'Agencies' },
   { href: '/dashboard/bookings',     icon: '📦', label: 'Bookings' },
   { href: '/dashboard/pricing',      icon: '💰', label: 'Pricing' },
   { href: '/dashboard/analytics',    icon: '📊', label: 'Analytics' },

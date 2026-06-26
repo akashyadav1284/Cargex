@@ -4,9 +4,11 @@ const Driver = require('./models/Driver');
 const Booking = require('./models/Booking');
 const Payment = require('./models/Payment');
 
+require('dotenv').config();
+
 const runTest = async () => {
   try {
-    await mongoose.connect('mongodb://127.0.0.1:27017/cargex');
+    await mongoose.connect(process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/cargex');
     console.log('✅ Connected to MongoDB');
 
     const user = await User.findOne({ role: 'user' });
@@ -29,6 +31,7 @@ const runTest = async () => {
       duration: 35,
       vehicleType: 'Tata Ace', // Fix missing required parameter
       price: { baseFare: 100, distanceFare: 200, surge: 50, total: 350 },
+      pricing: { baseFare: 100, distanceCost: 200, totalFare: 350 },
       paymentMethod: 'Cash',
       status: 'requested',
       otp: "1234"

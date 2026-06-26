@@ -26,3 +26,12 @@ body {
     @apply bg-background border border-border rounded-xl p-6 shadow-sm;
   }
 }
+
+/* Hide Google Maps Autocomplete dropdown if it contains errors instead of suggestions */
+.pac-container:not(:has(.pac-item)) {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
+}

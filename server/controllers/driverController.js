@@ -220,8 +220,59 @@ const getVehicles = async (req, res) => {
   }
 };
 
+// @desc    Get active/pending booking for the driver
+const getActiveRequest = async (req, res) => {
+  try {
+    // 1. Check for any booking already assigned to this driver that is in progress or accepted
+    const activeBooking = await Booking.findOne({
+      driverId: req.driver._id,
+      status: { $in: ['accepted', 'in_progress', 'arrived'] }
+    }).lean();
+
+    if (activeBooking) {
+      return res.json({
+        booking: activeBooking,
+        rideStatus: activeBooking.status
+      });
+    }
+
+    // 2. If the driver is online, check for any pending 'requested' booking matching their vehicle type
+    const driver = await Driver.findById(req.driver._id);
+    if (driver && driver.isOnline) {
+      const driverVehicleType = driver.vehicleDetails?.type || driver.vehicleDetails?.name;
+      const query = { status: 'requested' };
+      if (driverVehicleType) {
+        query.vehicleType = driverVehicleType;
+      }
+      const pendingBooking = await Booking.findOne(query).lean();
+
+      if (pendingBooking) {
+        const leanBooking = {
+          _id: pendingBooking._id,
+          pickupLocation: pendingBooking.pickupLocation,
+          dropLocation: pendingBooking.dropLocation,
+          vehicleType: pendingBooking.vehicleType,
+          loadType: pendingBooking.loadType,
+          distance: pendingBooking.distance,
+          pricing: pendingBooking.pricing,
+          price: pendingBooking.price,
+          status: pendingBooking.status,
+        };
+        return res.json({
+          booking: leanBooking,
+          rideStatus: 'incoming'
+        });
+      }
+    }
+
+    res.json({ booking: null, rideStatus: 'idle' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = { 
   acceptRide, startRide, completeRide, updateLocation, 
   toggleAvailability, getEarnings, getProfile, 
-  updateProfile, getRides, getVehicles 
+  updateProfile, getRides, getVehicles, getActiveRequest
 };

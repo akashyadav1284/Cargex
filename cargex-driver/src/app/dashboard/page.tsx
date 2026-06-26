@@ -4,30 +4,16 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { io, Socket } from 'socket.io-client';
 import { API_URL, SOCKET_URL } from '@/lib/config';
-import { useJsApiLoader, GoogleMap, Marker, DirectionsRenderer } from '@react-google-maps/api';
+import dynamic from 'next/dynamic';
 
-const mapContainerStyle = { width: '100%', height: '100%', minHeight: '400px', borderRadius: '1rem' };
-const DEFAULT_CENTER = { lat: 28.6139, lng: 77.2090 };
-
-const mapOptions = {
-  disableDefaultUI: true,
-  zoomControl: true,
-  styles: [
-    { elementType: "geometry", stylers: [{ color: "#242f3e" }] },
-    { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
-    { elementType: "labels.text.fill", stylers: [{ color: "#746855" }] },
-    { featureType: "administrative.locality", elementType: "labels.text.fill", stylers: [{ color: "#d59563" }] },
-    { featureType: "poi", elementType: "labels.text.fill", stylers: [{ color: "#d59563" }] },
-    { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#263c3f" }] },
-    { featureType: "poi.park", elementType: "labels.text.fill", stylers: [{ color: "#6b9a76" }] },
-    { featureType: "road", elementType: "geometry", stylers: [{ color: "#38414e" }] },
-    { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#212a37" }] },
-    { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#9ca5b3" }] },
-    { featureType: "transit", elementType: "geometry", stylers: [{ color: "#2f3948" }] },
-    { featureType: "water", elementType: "geometry", stylers: [{ color: "#17263c" }] },
-    { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#515c6d" }] },
-  ]
-};
+const LeafletMap = dynamic(() => import('@/components/Map'), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-full bg-surfaceHighlight flex items-center justify-center text-zinc-500 text-sm font-bold animate-pulse">
+      Loading Map Services...
+    </div>
+  )
+});
 
 type Tab = 'dispatch' | 'profile' | 'history';
 type RideStatus = 'idle' | 'incoming' | 'accepted' | 'in_progress' | 'completed';
@@ -57,13 +43,7 @@ export default function DriverDashboard() {
   const [editForm, setEditForm] = useState({ phone: '', address: '', city: '', profilePhoto: '' });
 
   // Maps State
-  const { isLoaded: isMapLoaded } = useJsApiLoader({
-    id: 'google-map-script',
-    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || ''
-  });
-  const [map, setMap] = useState<google.maps.Map | null>(null);
   const [currentLocation, setCurrentLocation] = useState<{lat: number, lng: number} | null>(null);
-  const [directionsResponse, setDirectionsResponse] = useState<google.maps.DirectionsResult | null>(null);
 
   const fetchOpts = useCallback((opts: RequestInit = {}) => ({
     headers: { 'Content-Type': 'application/json' },
@@ -84,6 +64,24 @@ export default function DriverDashboard() {
     handleLogout(); // Fallback to clear loading state
   };
 
+  const fetchActiveRequest = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_URL}/api/driver/active-request`, fetchOpts());
+      if (res.ok) {
+        const data = await res.json();
+        if (data.booking) {
+          setLiveRequest(data.booking);
+          setRideStatus(data.rideStatus);
+        } else {
+          setLiveRequest(null);
+          setRideStatus('idle');
+        }
+      }
+    } catch (e) {
+      console.error("Failed to fetch active request", e);
+    }
+  }, [fetchOpts]);
+
   const fetchUnifiedData = async () => {
     try {
       const [pRes, rRes, eRes] = await Promise.all([
@@ -99,6 +97,7 @@ export default function DriverDashboard() {
         setProfile(pData);
         setEditForm({ phone: pData.phone || '', address: pData.address || '', city: pData.city || '', profilePhoto: pData.documents?.profilePhoto || '' });
         setIsAvailable(pData.isOnline);
+        fetchActiveRequest();
       } else {
         throw new Error('Profile fetch failed');
       }
@@ -186,6 +185,9 @@ export default function DriverDashboard() {
     // Inform backend of current manual selection
     try {
       await fetch(`${API_URL}/api/driver/availability`, fetchOpts({ method: 'PUT' }));
+      if (nextState) {
+        fetchActiveRequest();
+      }
     } catch { }
   };
 
@@ -213,41 +215,7 @@ export default function DriverDashboard() {
     return () => { if (watchId) navigator.geolocation.clearWatch(watchId); };
   }, [rideStatus, liveRequest, socket, isAvailable, profile]);
 
-  // Directions Effect
-  useEffect(() => {
-    if (!window.google || !currentLocation || !liveRequest) {
-      setDirectionsResponse(null);
-      return;
-    }
-    
-    if (rideStatus === 'accepted' || rideStatus === 'in_progress') {
-      const directionsService = new window.google.maps.DirectionsService();
-      
-      let destination;
-      if (rideStatus === 'accepted' && liveRequest.pickupLocation) {
-         destination = new window.google.maps.LatLng(liveRequest.pickupLocation.latitude, liveRequest.pickupLocation.longitude);
-      } else if (rideStatus === 'in_progress' && liveRequest.dropLocation) {
-         destination = new window.google.maps.LatLng(liveRequest.dropLocation.latitude, liveRequest.dropLocation.longitude);
-      } else {
-         return;
-      }
 
-      directionsService.route(
-        {
-          origin: new window.google.maps.LatLng(currentLocation.lat, currentLocation.lng),
-          destination: destination,
-          travelMode: window.google.maps.TravelMode.DRIVING,
-        },
-        (result, status) => {
-          if (status === window.google.maps.DirectionsStatus.OK && result) {
-            setDirectionsResponse(result);
-          }
-        }
-      );
-    } else {
-      setDirectionsResponse(null);
-    }
-  }, [rideStatus, liveRequest, currentLocation]);
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -357,33 +325,13 @@ export default function DriverDashboard() {
                     <h3 className="font-bold text-primary flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span> Live GPS System</h3>
                     <span className="text-xs text-muted font-mono">{currentLocation ? `${currentLocation.lat.toFixed(4)}, ${currentLocation.lng.toFixed(4)}` : 'Locating...'}</span>
                   </div>
-                  <div className="flex-1 rounded-xl overflow-hidden relative">
-                    {isMapLoaded ? (
-                      <GoogleMap
-                        mapContainerStyle={mapContainerStyle}
-                        center={currentLocation || DEFAULT_CENTER}
-                        zoom={15}
-                        options={mapOptions}
-                        onLoad={map => setMap(map)}
-                      >
-                        {currentLocation && <Marker position={currentLocation} icon={{ url: 'https://maps.google.com/mapfiles/ms/icons/truck.png', scaledSize: new window.google.maps.Size(32, 32) }} />}
-                        {liveRequest?.pickupLocation && rideStatus === 'incoming' && <Marker position={{ lat: liveRequest.pickupLocation.latitude, lng: liveRequest.pickupLocation.longitude }} label="A" />}
-                        {directionsResponse && (
-                          <DirectionsRenderer
-                            directions={directionsResponse}
-                            options={{ suppressMarkers: true, polylineOptions: { strokeColor: '#10B981', strokeWeight: 5 } }}
-                          />
-                        )}
-                        {(rideStatus === 'accepted' || rideStatus === 'in_progress') && liveRequest && (
-                           <Marker position={{ 
-                             lat: rideStatus === 'accepted' ? liveRequest.pickupLocation.latitude : liveRequest.dropLocation.latitude, 
-                             lng: rideStatus === 'accepted' ? liveRequest.pickupLocation.longitude : liveRequest.dropLocation.longitude 
-                           }} label={rideStatus === 'accepted' ? 'A' : 'B'} />
-                        )}
-                      </GoogleMap>
-                    ) : (
-                      <div className="w-full h-full bg-surfaceHighlight flex items-center justify-center text-muted text-sm font-bold animate-pulse">Loading Map Services...</div>
-                    )}
+                  <div className="flex-1 rounded-xl overflow-hidden relative" style={{ minHeight: '350px' }}>
+                    <LeafletMap
+                      currentLocation={currentLocation}
+                      liveRequest={liveRequest}
+                      rideStatus={rideStatus}
+                      darkMode={false}
+                    />
                   </div>
                 </div>
               )}

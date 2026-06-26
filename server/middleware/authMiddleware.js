@@ -2,9 +2,10 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const Driver = require('../models/Driver');
 const Admin = require('../models/Admin');
+const Agency = require('../models/Agency');
 
 const extractToken = (req, role = 'user') => {
-  const prefix = role.includes('admin') ? 'admin' : role === 'driver' ? 'driver' : 'user';
+  const prefix = role.includes('admin') ? 'admin' : role === 'driver' ? 'driver' : role === 'agency' ? 'agency' : 'user';
   // Primary: HTTP-Only Cookie
   if (req.cookies && req.cookies[`accessToken_${prefix}`]) {
     return req.cookies[`accessToken_${prefix}`];
@@ -66,6 +67,27 @@ const protectAdmin = async (req, res, next) => {
   }
 };
 
+const protectAgency = async (req, res, next) => {
+  const token = extractToken(req, 'agency');
+  if (!token) return res.status(401).json({ message: 'Not authorized, no agency token' });
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
+    if (decoded.role !== 'agency') {
+      return res.status(403).json({ message: 'Forbidden: Requires agency role' });
+    }
+
+    req.user = await Agency.findById(decoded.id).select('-password');
+    if (!req.user) return res.status(401).json({ message: 'Not authorized, agency not found' });
+    
+    // Attach to req.agency for clarity in specific routes, and req.user for generic routes
+    req.agency = req.user;
+    next();
+  } catch (error) {
+    res.status(401).json({ message: 'Not authorized, token failed' });
+  }
+};
+
 // Generic role-based generic middleware
 const requireRole = (...roles) => {
   return (req, res, next) => {
@@ -74,6 +96,7 @@ const requireRole = (...roles) => {
     if (req.user) currentRole = req.user.role || 'user';
     else if (req.driver) currentRole = 'driver';
     else if (req.admin) currentRole = req.admin.role || 'admin';
+    else if (req.agency) currentRole = 'agency';
 
     if (!roles.includes(currentRole)) {
       return res.status(403).json({ message: `Forbidden: Requires one of [${roles.join(', ')}]` });
@@ -82,4 +105,4 @@ const requireRole = (...roles) => {
   };
 };
 
-module.exports = { protectUser, protectDriver, protectAdmin, requireRole };
+module.exports = { protectUser, protectDriver, protectAdmin, protectAgency, requireRole };

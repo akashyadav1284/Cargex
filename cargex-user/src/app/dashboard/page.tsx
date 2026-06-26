@@ -6,36 +6,19 @@ import { useRouter } from 'next/navigation';
 import { useUser, UserButton } from '@clerk/nextjs';
 import { io, Socket } from 'socket.io-client';
 import { API_URL, SOCKET_URL } from '@/lib/config';
-import { useJsApiLoader, GoogleMap, Marker, DirectionsRenderer, Autocomplete } from '@react-google-maps/api';
+import dynamic from 'next/dynamic';
 
-const GOOGLE_MAPS_LIBRARIES: ("places")[] = ["places"];
-const mapContainerStyle = { width: '100%', height: '100%' };
+const LeafletMap = dynamic(() => import('@/components/Map'), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-full flex-col items-center justify-center text-zinc-500">
+      <svg className="w-12 h-12 text-zinc-500 z-10 mb-2 opacity-50 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" /></svg>
+      <span className="text-zinc-500 tracking-widest text-xs uppercase font-bold z-10 opacity-50">Loading Map...</span>
+    </div>
+  )
+});
+
 const DEFAULT_CENTER = { lat: 28.6139, lng: 77.2090 };
-
-const mapOptions = {
-  disableDefaultUI: true,
-  zoomControl: true,
-  styles: [
-    { elementType: "geometry", stylers: [{ color: "#242f3e" }] },
-    { elementType: "labels.text.stroke", stylers: [{ color: "#242f3e" }] },
-    { elementType: "labels.text.fill", stylers: [{ color: "#746855" }] },
-    { featureType: "administrative.locality", elementType: "labels.text.fill", stylers: [{ color: "#d59563" }] },
-    { featureType: "poi", elementType: "labels.text.fill", stylers: [{ color: "#d59563" }] },
-    { featureType: "poi.park", elementType: "geometry", stylers: [{ color: "#263c3f" }] },
-    { featureType: "poi.park", elementType: "labels.text.fill", stylers: [{ color: "#6b9a76" }] },
-    { featureType: "road", elementType: "geometry", stylers: [{ color: "#38414e" }] },
-    { featureType: "road", elementType: "geometry.stroke", stylers: [{ color: "#212a37" }] },
-    { featureType: "road", elementType: "labels.text.fill", stylers: [{ color: "#9ca5b3" }] },
-    { featureType: "road.highway", elementType: "geometry", stylers: [{ color: "#746855" }] },
-    { featureType: "road.highway", elementType: "geometry.stroke", stylers: [{ color: "#1f2835" }] },
-    { featureType: "road.highway", elementType: "labels.text.fill", stylers: [{ color: "#f3d19c" }] },
-    { featureType: "transit", elementType: "geometry", stylers: [{ color: "#2f3948" }] },
-    { featureType: "transit.station", elementType: "labels.text.fill", stylers: [{ color: "#d59563" }] },
-    { featureType: "water", elementType: "geometry", stylers: [{ color: "#17263c" }] },
-    { featureType: "water", elementType: "labels.text.fill", stylers: [{ color: "#515c6d" }] },
-    { featureType: "water", elementType: "labels.text.stroke", stylers: [{ color: "#17263c" }] },
-  ]
-};
 
 export default function UserDashboard() {
   const router = useRouter();
@@ -57,20 +40,34 @@ export default function UserDashboard() {
   const [bookingSuccess, setBookingSuccess] = useState(false);
   const [bookingId, setBookingId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<'booking' | 'history'>('booking');
+  const [historyBookings, setHistoryBookings] = useState<any[]>([]);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+
+  const fetchHistory = useCallback(async () => {
+    setIsHistoryLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/api/users/bookings`, { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        setHistoryBookings(data.bookings || []);
+      }
+    } catch (e) {
+      console.error("Failed to fetch ride history", e);
+    } finally {
+      setIsHistoryLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === 'history') {
+      fetchHistory();
+    }
+  }, [activeTab, fetchHistory]);
   
-  // Maps & Routing State
-  const { isLoaded: isMapLoaded } = useJsApiLoader({
-    id: 'google-map-script',
-    googleMapsApiKey: process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '',
-    libraries: GOOGLE_MAPS_LIBRARIES
-  });
-  const [map, setMap] = useState<google.maps.Map | null>(null);
-  const [pickupAutocomplete, setPickupAutocomplete] = useState<google.maps.places.Autocomplete | null>(null);
-  const [dropoffAutocomplete, setDropoffAutocomplete] = useState<google.maps.places.Autocomplete | null>(null);
-  
+  // Maps & Routing State (Leaflet/Nominatim)
   const [pickupLocation, setPickupLocation] = useState<{lat: number, lng: number, address: string} | null>(null);
   const [dropoffLocation, setDropoffLocation] = useState<{lat: number, lng: number, address: string} | null>(null);
-  const [directionsResponse, setDirectionsResponse] = useState<google.maps.DirectionsResult | null>(null);
   const [tripDistance, setTripDistance] = useState<number>(0);
   const [tripDuration, setTripDuration] = useState<number>(0);
 
@@ -78,33 +75,105 @@ export default function UserDashboard() {
   const [pickupAddress, setPickupAddress] = useState('');
   const [dropoffAddress, setDropoffAddress] = useState('');
 
+  // Suggestions state
+  const [pickupSuggestions, setPickupSuggestions] = useState<any[]>([]);
+  const [dropoffSuggestions, setDropoffSuggestions] = useState<any[]>([]);
+  const [isPickupFocused, setIsPickupFocused] = useState(false);
+  const [isDropoffFocused, setIsDropoffFocused] = useState(false);
+
   const [rideStatus, setRideStatus] = useState<string | null>(null);
   const [driverLocation, setDriverLocation] = useState<{lat: number, lng: number} | null>(null);
   const [assignedDriver, setAssignedDriver] = useState<any | null>(null);
 
-  // Directions Effect
+  // Debounced suggestions for pickup
   useEffect(() => {
-    if (!pickupLocation || !dropoffLocation || !window.google) return;
-    
-    const directionsService = new window.google.maps.DirectionsService();
-    directionsService.route(
-      {
-        origin: new window.google.maps.LatLng(pickupLocation.lat, pickupLocation.lng),
-        destination: new window.google.maps.LatLng(dropoffLocation.lat, dropoffLocation.lng),
-        travelMode: window.google.maps.TravelMode.DRIVING,
-      },
-      (result, status) => {
-        if (status === window.google.maps.DirectionsStatus.OK && result) {
-          setDirectionsResponse(result);
-          
-          const route = result.routes[0].legs[0];
-          if (route.distance?.value) setTripDistance(route.distance.value / 1000); // meters to km
-          if (route.duration?.value) setTripDuration(Math.ceil(route.duration.value / 60)); // seconds to mins
-        } else {
-          console.error(`Directions request failed due to ${status}`);
-        }
+    if (!pickupAddress || pickupLocation) {
+      setPickupSuggestions([]);
+      return;
+    }
+    const delayDebounceFn = setTimeout(async () => {
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(pickupAddress)}&limit=5`);
+        const data = await res.json();
+        setPickupSuggestions(data || []);
+      } catch (e) {
+        console.error(e);
       }
-    );
+    }, 400);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [pickupAddress, pickupLocation]);
+
+  // Debounced suggestions for dropoff
+  useEffect(() => {
+    if (!dropoffAddress || dropoffLocation) {
+      setDropoffSuggestions([]);
+      return;
+    }
+    const delayDebounceFn = setTimeout(async () => {
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(dropoffAddress)}&limit=5`);
+        const data = await res.json();
+        setDropoffSuggestions(data || []);
+      } catch (e) {
+        console.error(e);
+      }
+    }, 400);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [dropoffAddress, dropoffLocation]);
+
+  const handleSelectPickup = (item: any) => {
+    setPickupLocation({
+      lat: parseFloat(item.lat),
+      lng: parseFloat(item.lon),
+      address: item.display_name
+    });
+    setPickupAddress(item.display_name);
+    setPickupSuggestions([]);
+  };
+
+  const handleSelectDropoff = (item: any) => {
+    setDropoffLocation({
+      lat: parseFloat(item.lat),
+      lng: parseFloat(item.lon),
+      address: item.display_name
+    });
+    setDropoffAddress(item.display_name);
+    setDropoffSuggestions([]);
+  };
+
+  // OSRM Driving Route and Distance/Duration Calculation
+  useEffect(() => {
+    if (!pickupLocation || !dropoffLocation) return;
+    
+    const fetchOSRMRoute = async () => {
+      try {
+        const url = `https://router.project-osrm.org/route/v1/driving/${pickupLocation.lng},${pickupLocation.lat};${dropoffLocation.lng},${dropoffLocation.lat}?overview=full`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (data.routes && data.routes.length > 0) {
+          const route = data.routes[0];
+          setTripDistance(route.distance / 1000); // meters to km
+          setTripDuration(Math.ceil(route.duration / 60)); // seconds to mins
+        }
+      } catch (err) {
+        console.error('OSRM route fetch failed for user', err);
+        // Fallback to Haversine
+        const R = 6371; // km
+        const dLat = (dropoffLocation.lat - pickupLocation.lat) * Math.PI / 180;
+        const dLon = (dropoffLocation.lng - pickupLocation.lng) * Math.PI / 180;
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                  Math.cos(pickupLocation.lat * Math.PI / 180) * Math.cos(dropoffLocation.lat * Math.PI / 180) *
+                  Math.sin(dLon/2) * Math.sin(dLon/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        const distance = R * c;
+        setTripDistance(distance);
+        setTripDuration(Math.ceil(distance * 2));
+      }
+    };
+    
+    fetchOSRMRoute();
   }, [pickupLocation, dropoffLocation]);
 
   // Auth guard — Clerk-based
@@ -178,26 +247,80 @@ export default function UserDashboard() {
     fetch(`${API_URL}/api/universal/categories`).then(r => r.json()).then(j => { if (j.success) setCategories(j.data); }).catch(() => {});
   }, []);
 
+  const geocodeAddress = async (address: string, fallbackLat: number, fallbackLng: number) => {
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`);
+      const data = await res.json();
+      if (data && data.length > 0) {
+        return {
+          lat: parseFloat(data[0].lat),
+          lng: parseFloat(data[0].lon),
+          address: data[0].display_name
+        };
+      }
+    } catch (err) {
+      console.error("OSM Geocoding failed", err);
+    }
+    return {
+      lat: fallbackLat,
+      lng: fallbackLng,
+      address: address
+    };
+  };
+
   const handleCategorySelect = useCallback(async (catName: string) => {
     setSelectedCategory(catName); setSelectedCargo(null); setSelectedVehicle(null); setStep(2); setIsLoading(true);
     try { const res = await fetch(`${API_URL}/api/universal/cargo/${catName}`); const j = await res.json(); if (j.success) setCargoTypes(j.data); } catch {} finally { setIsLoading(false); }
   }, []);
 
   const handleCargoSelect = useCallback(async (cargo: any) => {
-    if (!pickupLocation || !dropoffLocation) {
-      alert("Please select pickup and dropoff locations first on Step 4 section");
+    let currentPickup = pickupLocation;
+    let currentDropoff = dropoffLocation;
+
+    if (!currentPickup && pickupAddress) {
+      setIsLoading(true);
+      currentPickup = await geocodeAddress(pickupAddress, 19.1136, 72.8297);
+      setPickupLocation(currentPickup);
+      setIsLoading(false);
+    }
+
+    if (!currentDropoff && dropoffAddress) {
+      setIsLoading(true);
+      currentDropoff = await geocodeAddress(dropoffAddress, 19.0616, 72.8658);
+      setDropoffLocation(currentDropoff);
+      setIsLoading(false);
+    }
+
+    if (!currentPickup || !currentDropoff) {
+      alert("Please enter both pickup and dropoff locations.");
       return;
     }
+
     setSelectedCargo(cargo); setSelectedVehicle(null); setStep(3); setIsLoading(true);
     try {
+      let distance = tripDistance;
+      if (!distance) {
+        // Calculate haversine distance
+        const R = 6371; // km
+        const dLat = (currentDropoff.lat - currentPickup.lat) * Math.PI / 180;
+        const dLon = (currentDropoff.lng - currentPickup.lng) * Math.PI / 180;
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                  Math.cos(currentPickup.lat * Math.PI / 180) * Math.cos(currentDropoff.lat * Math.PI / 180) *
+                  Math.sin(dLon/2) * Math.sin(dLon/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        distance = R * c;
+        setTripDistance(distance);
+        setTripDuration(Math.ceil(distance * 2));
+      }
+
       const res = await fetch(`${API_URL}/api/universal/recommend`, { 
         method: 'POST', 
         headers: { 'Content-Type': 'application/json' }, 
-        body: JSON.stringify({ cargoTypeId: cargo._id, distanceKm: tripDistance || 15, weightKg: 500 }) 
+        body: JSON.stringify({ cargoTypeId: cargo._id, distanceKm: distance || 15, weightKg: 500 }) 
       });
       const j = await res.json(); if (j.success) setRecommendations(j.data); else setRecommendations([]);
     } catch { setRecommendations([]); } finally { setIsLoading(false); }
-  }, [pickupLocation, dropoffLocation, tripDistance]);
+  }, [pickupLocation, dropoffLocation, pickupAddress, dropoffAddress, tripDistance]);
 
   const handleVehicleSelect = useCallback((v: any) => { setSelectedVehicle(v); setStep(4); }, []);
 
@@ -264,7 +387,8 @@ export default function UserDashboard() {
         <div className="flex items-center gap-8">
           <span className="text-2xl font-bold tracking-tight text-primary">Cargex</span>
           <div className="hidden md:flex gap-6">
-            <button className="text-sm font-medium text-primary border-b-2 border-primary h-16">Booking</button>
+            <button onClick={() => setActiveTab('booking')} className={`text-sm font-medium h-16 transition-all ${activeTab === 'booking' ? 'text-primary border-b-2 border-primary' : 'text-muted hover:text-primary'}`}>Booking</button>
+            <button onClick={() => setActiveTab('history')} className={`text-sm font-medium h-16 transition-all ${activeTab === 'history' ? 'text-primary border-b-2 border-primary' : 'text-muted hover:text-primary'}`}>Ride History</button>
           </div>
         </div>
         <div className="flex items-center gap-4">
@@ -282,183 +406,341 @@ export default function UserDashboard() {
 
       <div className="flex-1 flex flex-col-reverse md:flex-row relative overflow-hidden">
         <div className="w-full md:w-[480px] lg:w-[550px] bg-white md:h-[calc(100vh-64px)] overflow-y-auto z-10 shadow-[4px_0_24px_rgba(0,0,0,0.04)] border-r border-border shrink-0 pb-10 md:pb-0 flex flex-col">
-          <div className="p-6 border-b border-border bg-white sticky top-0 z-10">
-            <div className="flex items-center gap-4 mb-2">
-              {step > 1 && <button onClick={() => setStep(step - 1)} className="w-8 h-8 rounded-full bg-surface flex items-center justify-center hover:bg-border transition-colors"><span className="text-primary font-bold">&larr;</span></button>}
-              <h1 className="text-2xl font-bold tracking-tight text-primary">
-                {step === 1 && "What are you transporting?"}
-                {step === 2 && "Select Cargo Details"}
-                {step === 3 && "Recommended Vehicles"}
-                {step === 4 && "Finalize Booking"}
-              </h1>
+          {activeTab === 'booking' ? (
+            <div className="p-6 border-b border-border bg-white sticky top-0 z-10">
+              <div className="flex items-center gap-4 mb-2">
+                {step > 1 && <button onClick={() => setStep(step - 1)} className="w-8 h-8 rounded-full bg-surface flex items-center justify-center hover:bg-border transition-colors"><span className="text-primary font-bold">&larr;</span></button>}
+                <h1 className="text-2xl font-bold tracking-tight text-primary">
+                  {step === 1 && "What are you transporting?"}
+                  {step === 2 && "Select Cargo Details"}
+                  {step === 3 && "Recommended Vehicles"}
+                  {step === 4 && "Finalize Booking"}
+                </h1>
+              </div>
+              <div className="flex gap-2 mt-4">{[1,2,3,4].map(s => <div key={s} className={`h-1.5 flex-1 rounded-full ${s <= step ? 'bg-primary' : 'bg-surfaceHighlight'}`}></div>)}</div>
             </div>
-            <div className="flex gap-2 mt-4">{[1,2,3,4].map(s => <div key={s} className={`h-1.5 flex-1 rounded-full ${s <= step ? 'bg-primary' : 'bg-surfaceHighlight'}`}></div>)}</div>
-          </div>
+          ) : (
+            <div className="p-6 border-b border-border bg-white sticky top-0 z-10">
+              <h1 className="text-2xl font-bold tracking-tight text-primary">Ride History</h1>
+              <p className="text-xs text-muted mt-1">Complete log of your bookings and deliveries</p>
+            </div>
+          )}
 
           <div className="p-6 flex-1 overflow-y-auto">
-            {step === 1 && (
-              <div className="grid grid-cols-2 gap-4">
-                {categories.length === 0 ? <p className="col-span-2 text-muted text-sm text-center py-8">Loading Categories...</p> :
-                  categories.map((cat, i) => (
-                    <button key={i} onClick={() => handleCategorySelect(cat)} className="p-4 border-2 border-transparent border-b-border bg-white rounded-2xl hover:border-black transition-all text-left shadow-sm flex flex-col gap-3 group">
-                      <span className="text-3xl bg-surface w-12 h-12 flex items-center justify-center rounded-xl group-hover:scale-105 transition-transform">{getIconForCategory(cat)}</span>
-                      <h3 className="font-bold text-primary tracking-tight">{cat}</h3>
-                    </button>
-                  ))
-                }
-              </div>
-            )}
+            {activeTab === 'booking' ? (
+              <>
+                {step === 1 && (
+                  <div className="grid grid-cols-2 gap-4">
+                    {categories.length === 0 ? <p className="col-span-2 text-muted text-sm text-center py-8">Loading Categories...</p> :
+                      categories.map((cat, i) => (
+                        <button key={i} onClick={() => handleCategorySelect(cat)} className="p-4 border-2 border-transparent border-b-border bg-white rounded-2xl hover:border-black transition-all text-left shadow-sm flex flex-col gap-3 group">
+                          <span className="text-3xl bg-surface w-12 h-12 flex items-center justify-center rounded-xl group-hover:scale-105 transition-transform">{getIconForCategory(cat)}</span>
+                          <h3 className="font-bold text-primary tracking-tight">{cat}</h3>
+                        </button>
+                      ))
+                    }
+                  </div>
+                )}
 
-            {step === 2 && selectedCategory && (
-              <div className="space-y-3">
-                <div className="bg-surfaceHighlight border border-border rounded-xl p-4 mb-6 flex items-center gap-4">
-                  <span className="text-3xl">{getIconForCategory(selectedCategory)}</span>
-                  <div><span className="text-xs text-muted uppercase font-bold tracking-wider">Selected</span><h3 className="font-bold text-primary">{selectedCategory}</h3></div>
-                </div>
-                <h4 className="font-bold text-lg mb-4">Select specific type</h4>
-                {isLoading ? <p className="text-muted text-sm py-4">Loading...</p> : cargoTypes.length === 0 ? <p className="text-muted text-sm py-4">No cargo types found.</p> :
-                  cargoTypes.map((cargo) => (
-                    <button key={cargo._id} onClick={() => handleCargoSelect(cargo)} className="w-full text-left p-5 border border-border rounded-xl bg-white hover:border-black hover:shadow-sm transition-all flex justify-between items-center">
-                      <div><span className="font-bold text-primary block">{cargo.name}</span>{cargo.description && <span className="text-xs text-muted mt-1 block">{cargo.description}</span>}</div>
-                      <span className="text-muted">&rarr;</span>
-                    </button>
-                  ))
-                }
-              </div>
-            )}
+                {step === 2 && selectedCategory && (
+                  <div className="space-y-3">
+                    <div className="bg-surfaceHighlight border border-border rounded-xl p-4 mb-6 flex items-center gap-4">
+                      <span className="text-3xl">{getIconForCategory(selectedCategory)}</span>
+                      <div><span className="text-xs text-muted uppercase font-bold tracking-wider">Selected</span><h3 className="font-bold text-primary">{selectedCategory}</h3></div>
+                    </div>
+                    <h4 className="font-bold text-lg mb-4">Select specific type</h4>
+                    {isLoading ? <p className="text-muted text-sm py-4">Loading...</p> : cargoTypes.length === 0 ? <p className="text-muted text-sm py-4">No cargo types found.</p> :
+                      cargoTypes.map((cargo) => (
+                        <button key={cargo._id} onClick={() => handleCargoSelect(cargo)} className="w-full text-left p-5 border border-border rounded-xl bg-white hover:border-black hover:shadow-sm transition-all flex justify-between items-center">
+                          <div><span className="font-bold text-primary block">{cargo.name}</span>{cargo.description && <span className="text-xs text-muted mt-1 block">{cargo.description}</span>}</div>
+                          <span className="text-muted">&rarr;</span>
+                        </button>
+                      ))
+                    }
+                  </div>
+                )}
 
-            {step === 3 && (
-              <div className="space-y-4">
-                <div className="flex justify-between items-center bg-primary text-white p-4 rounded-xl mb-6 shadow-md">
-                  <div><span className="text-[10px] font-bold tracking-wider uppercase opacity-70">AI Matched for</span><h3 className="font-bold text-lg">{selectedCargo?.name}</h3></div>
-                  <span className="text-2xl">✨</span>
-                </div>
-                {isLoading ? <p className="text-muted text-sm py-4">Running Pricing Engine...</p> : recommendations.length === 0 ?
-                  <div className="bg-red-50 border border-red-200 text-red-600 p-4 rounded-xl"><p className="font-bold">No Vehicles Available</p></div> :
-                  recommendations.map((veh) => (
-                    <button key={veh.vehicleTypeId} onClick={() => handleVehicleSelect(veh)} className="w-full text-left border-2 rounded-2xl p-4 transition-all border-transparent bg-white hover:border-border border-b-border group">
-                      <div className="flex justify-between items-start">
-                        <div className="flex gap-4">
-                          <div className="w-16 h-16 bg-surface rounded-xl flex items-center justify-center border border-border"><span className="text-3xl">🚚</span></div>
-                          <div><h3 className="font-bold text-primary text-lg">{veh.name}</h3><div className="flex items-center gap-2 mt-1"><span className="text-xs bg-surface px-2 py-0.5 rounded font-bold">{veh.capacity} kg</span><span className="text-xs text-muted">{veh.category}</span></div></div>
+                {step === 3 && (
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center bg-primary text-white p-4 rounded-xl mb-6 shadow-md">
+                      <div><span className="text-[10px] font-bold tracking-wider uppercase opacity-70">AI Matched for</span><h3 className="font-bold text-lg">{selectedCargo?.name}</h3></div>
+                      <span className="text-2xl">✨</span>
+                    </div>
+                    {isLoading ? <p className="text-muted text-sm py-4">Running Pricing Engine...</p> : recommendations.length === 0 ?
+                      <div className="bg-red-50 border border-red-200 text-red-600 p-4 rounded-xl"><p className="font-bold">No Vehicles Available</p></div> :
+                      recommendations.map((veh) => (
+                        <button key={veh.vehicleTypeId} onClick={() => handleVehicleSelect(veh)} className="w-full text-left border-2 rounded-2xl p-4 transition-all border-transparent bg-white hover:border-border border-b-border group">
+                          <div className="flex justify-between items-start">
+                            <div className="flex gap-4">
+                              <div className="w-16 h-16 bg-surface rounded-xl flex items-center justify-center border border-border"><span className="text-3xl">🚚</span></div>
+                              <div><h3 className="font-bold text-primary text-lg">{veh.name}</h3><div className="flex items-center gap-2 mt-1"><span className="text-xs bg-surface px-2 py-0.5 rounded font-bold">{veh.capacity} kg</span><span className="text-xs text-muted">{veh.category}</span></div></div>
+                            </div>
+                            <div className="text-right"><p className="font-black text-xl text-primary">₹{veh.estimatedPrice}</p><p className="text-[10px] uppercase font-bold text-muted mt-1">Est. Fare</p></div>
+                          </div>
+                          {veh.breakdown && (
+                            <div className="mt-3 pt-3 border-t border-border/50 grid grid-cols-3 gap-2 text-[11px]">
+                              <div><span className="text-muted block">Base</span><span className="font-bold">₹{veh.breakdown.baseFare}</span></div>
+                              <div><span className="text-muted block">Distance</span><span className="font-bold">₹{veh.breakdown.distanceCost}</span></div>
+                              <div><span className="text-muted block">Load</span><span className="font-bold">₹{veh.breakdown.loadCost}</span></div>
+                              {veh.breakdown.surgeMultiplier > 1 && <div><span className="text-red-500 block">Surge</span><span className="font-bold text-red-500">×{veh.breakdown.surgeMultiplier}</span></div>}
+                              {veh.breakdown.nightSurcharge > 0 && <div><span className="text-amber-500 block">Night</span><span className="font-bold text-amber-500">+₹{veh.breakdown.nightSurcharge}</span></div>}
+                            </div>
+                          )}
+                        </button>
+                      ))
+                    }
+                  </div>
+                )}
+
+                {step === 4 && selectedVehicle && (
+                  <div className="space-y-6 pb-10">
+                    <div className="bg-surfaceHighlight border border-border rounded-xl p-4 flex justify-between items-center">
+                      <div><span className="text-xs text-muted uppercase font-bold tracking-wider block mb-1">Selected</span><h3 className="font-bold text-primary">{selectedVehicle.name}</h3></div>
+                      <p className="font-black text-xl text-primary">₹{selectedVehicle.estimatedPrice}</p>
+                    </div>
+
+                    {/* Transparent Pricing Breakdown */}
+                    {selectedVehicle.breakdown && (
+                      <div className="bg-white border border-border rounded-xl overflow-hidden">
+                        <div className="p-4 border-b border-border bg-surface"><h4 className="font-bold text-sm uppercase tracking-wider text-muted">Fare Breakdown</h4></div>
+                        <div className="p-4 space-y-2.5 text-sm">
+                          <div className="flex justify-between"><span className="text-muted">Base Fare</span><span className="font-bold">₹{selectedVehicle.breakdown.baseFare}</span></div>
+                          <div className="flex justify-between"><span className="text-muted">Distance ({tripDistance.toFixed(1)} km)</span><span className="font-bold">₹{selectedVehicle.breakdown.distanceCost}</span></div>
+                          <div className="flex justify-between"><span className="text-muted">Load Charge</span><span className="font-bold">₹{selectedVehicle.breakdown.loadCost}</span></div>
+                          <div className="flex justify-between"><span className="text-muted">Vehicle Multiplier</span><span className="font-bold">×{selectedVehicle.breakdown.vehicleMultiplier}</span></div>
+                          {selectedVehicle.breakdown.surgeMultiplier > 1 && (
+                            <div className="flex justify-between text-red-500"><span>Surge Pricing</span><span className="font-bold">×{selectedVehicle.breakdown.surgeMultiplier}</span></div>
+                          )}
+                          {selectedVehicle.breakdown.nightSurcharge > 0 && (
+                            <div className="flex justify-between text-amber-600"><span>Night Surcharge</span><span className="font-bold">+₹{selectedVehicle.breakdown.nightSurcharge}</span></div>
+                          )}
+                          <div className="border-t border-border pt-2 mt-2 flex justify-between text-base">
+                            <span className="font-bold">Total Estimated Fare</span>
+                            <span className="font-black text-primary text-lg">₹{selectedVehicle.breakdown.totalFare}</span>
+                          </div>
                         </div>
-                        <div className="text-right"><p className="font-black text-xl text-primary">₹{veh.estimatedPrice}</p><p className="text-[10px] uppercase font-bold text-muted mt-1">Est. Fare</p></div>
                       </div>
-                      {veh.breakdown && (
-                        <div className="mt-3 pt-3 border-t border-border/50 grid grid-cols-3 gap-2 text-[11px]">
-                          <div><span className="text-muted block">Base</span><span className="font-bold">₹{veh.breakdown.baseFare}</span></div>
-                          <div><span className="text-muted block">Distance</span><span className="font-bold">₹{veh.breakdown.distanceCost}</span></div>
-                          <div><span className="text-muted block">Load</span><span className="font-bold">₹{veh.breakdown.loadCost}</span></div>
-                          {veh.breakdown.surgeMultiplier > 1 && <div><span className="text-red-500 block">Surge</span><span className="font-bold text-red-500">×{veh.breakdown.surgeMultiplier}</span></div>}
-                          {veh.breakdown.nightSurcharge > 0 && <div><span className="text-amber-500 block">Night</span><span className="font-bold text-amber-500">+₹{veh.breakdown.nightSurcharge}</span></div>}
+                    )}
+                  </div>
+                )}
+                
+                {/* Always show locations selection when step < 4 */}
+                {step < 4 && (
+                  <div className="mt-8 border-t border-border pt-8">
+                    <h4 className="font-bold text-lg mb-4">Logistics Details</h4>
+                    <div className="bg-inputBg rounded-xl p-4 border border-transparent focus-within:border-black transition-colors">
+                      <div className="relative pl-8 space-y-4">
+                        <div className="absolute left-[11px] top-5 bottom-5 w-0.5 bg-black z-0"></div>
+                        
+                        {/* Pickup Input and Suggestions */}
+                        <div className="relative z-20 flex flex-col w-full">
+                          <div className="relative flex items-center">
+                            <div className="w-2 h-2 bg-black rounded-full absolute -left-[27px]"></div>
+                            <input 
+                              type="text" 
+                              placeholder="Pickup location" 
+                              value={pickupAddress} 
+                              onChange={e => { setPickupAddress(e.target.value); setPickupLocation(null); }} 
+                              onFocus={() => setIsPickupFocused(true)}
+                              onBlur={() => setTimeout(() => setIsPickupFocused(false), 200)}
+                              className="w-full bg-white rounded-md px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black shadow-sm text-primary" 
+                            />
+                          </div>
+                          {isPickupFocused && pickupSuggestions.length > 0 && (
+                            <div className="absolute left-0 right-0 top-full mt-1 max-h-60 overflow-y-auto bg-white border border-border rounded-lg shadow-lg z-[100]">
+                              {pickupSuggestions.map((item, idx) => (
+                                <div 
+                                  key={idx} 
+                                  onMouseDown={() => handleSelectPickup(item)} 
+                                  className="px-4 py-2.5 hover:bg-surfaceHighlight text-xs text-primary font-medium cursor-pointer transition-colors border-b border-border last:border-0 truncate"
+                                >
+                                  📍 {item.display_name}
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </button>
-                  ))
-                }
-              </div>
-            )}
 
-            {step === 4 && selectedVehicle && (
-              <div className="space-y-6 pb-10">
-                <div className="bg-surfaceHighlight border border-border rounded-xl p-4 flex justify-between items-center">
-                  <div><span className="text-xs text-muted uppercase font-bold tracking-wider block mb-1">Selected</span><h3 className="font-bold text-primary">{selectedVehicle.name}</h3></div>
-                  <p className="font-black text-xl text-primary">₹{selectedVehicle.estimatedPrice}</p>
-                </div>
-
-                {/* Transparent Pricing Breakdown */}
-                {selectedVehicle.breakdown && (
-                  <div className="bg-white border border-border rounded-xl overflow-hidden">
-                    <div className="p-4 border-b border-border bg-surface"><h4 className="font-bold text-sm uppercase tracking-wider text-muted">Fare Breakdown</h4></div>
-                    <div className="p-4 space-y-2.5 text-sm">
-                      <div className="flex justify-between"><span className="text-muted">Base Fare</span><span className="font-bold">₹{selectedVehicle.breakdown.baseFare}</span></div>
-                      <div className="flex justify-between"><span className="text-muted">Distance ({tripDistance.toFixed(1)} km)</span><span className="font-bold">₹{selectedVehicle.breakdown.distanceCost}</span></div>
-                      <div className="flex justify-between"><span className="text-muted">Load Charge</span><span className="font-bold">₹{selectedVehicle.breakdown.loadCost}</span></div>
-                      <div className="flex justify-between"><span className="text-muted">Vehicle Multiplier</span><span className="font-bold">×{selectedVehicle.breakdown.vehicleMultiplier}</span></div>
-                      {selectedVehicle.breakdown.surgeMultiplier > 1 && (
-                        <div className="flex justify-between text-red-500"><span>Surge Pricing</span><span className="font-bold">×{selectedVehicle.breakdown.surgeMultiplier}</span></div>
-                      )}
-                      {selectedVehicle.breakdown.nightSurcharge > 0 && (
-                        <div className="flex justify-between text-amber-600"><span>Night Surcharge</span><span className="font-bold">+₹{selectedVehicle.breakdown.nightSurcharge}</span></div>
-                      )}
-                      <div className="border-t border-border pt-2 mt-2 flex justify-between text-base">
-                        <span className="font-bold">Total Estimated Fare</span>
-                        <span className="font-black text-primary text-lg">₹{selectedVehicle.breakdown.totalFare}</span>
+                        {/* Dropoff Input and Suggestions */}
+                        <div className="relative z-10 flex flex-col w-full">
+                          <div className="relative flex items-center">
+                            <div className="w-2 h-2 bg-black absolute -left-[27px]"></div>
+                            <input 
+                              type="text" 
+                              placeholder="Drop location" 
+                              value={dropoffAddress} 
+                              onChange={e => { setDropoffAddress(e.target.value); setDropoffLocation(null); }} 
+                              onFocus={() => setIsDropoffFocused(true)}
+                              onBlur={() => setTimeout(() => setIsDropoffFocused(false), 200)}
+                              className="w-full bg-white rounded-md px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black shadow-sm text-primary" 
+                            />
+                          </div>
+                          {isDropoffFocused && dropoffSuggestions.length > 0 && (
+                            <div className="absolute left-0 right-0 top-full mt-1 max-h-60 overflow-y-auto bg-white border border-border rounded-lg shadow-lg z-[100]">
+                              {dropoffSuggestions.map((item, idx) => (
+                                <div 
+                                  key={idx} 
+                                  onMouseDown={() => handleSelectDropoff(item)} 
+                                  className="px-4 py-2.5 hover:bg-surfaceHighlight text-xs text-primary font-medium cursor-pointer transition-colors border-b border-border last:border-0 truncate"
+                                >
+                                  📍 {item.display_name}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
                 )}
-              </div>
-            )}
-            
-            {/* Always show locations selection when step < 4 (so they can pick before they reach step 4/recommendations) */}
-            {step < 4 && (
-              <div className="mt-8 border-t border-border pt-8">
-                <h4 className="font-bold text-lg mb-4">Logistics Details</h4>
-                <div className="bg-inputBg rounded-xl p-4 border border-transparent focus-within:border-black transition-colors">
-                  <div className="relative pl-8 space-y-4">
-                    <div className="absolute left-[11px] top-5 bottom-5 w-0.5 bg-black z-0"></div>
-                    
-                    <div className="relative z-10 flex items-center">
-                      <div className="w-2 h-2 bg-black rounded-full absolute -left-[27px]"></div>
-                      {isMapLoaded ? (
-                        <Autocomplete
-                          onLoad={(a) => setPickupAutocomplete(a)}
-                          onPlaceChanged={() => {
-                            if (pickupAutocomplete !== null) {
-                              const place = pickupAutocomplete.getPlace();
-                              if (place.geometry && place.geometry.location) {
-                                setPickupAddress(place.formatted_address || place.name || '');
-                                setPickupLocation({
-                                  lat: place.geometry.location.lat(),
-                                  lng: place.geometry.location.lng(),
-                                  address: place.formatted_address || place.name || ''
-                                });
-                              }
-                            }
-                          }}
-                          className="w-full"
-                        >
-                          <input type="text" placeholder="Pickup location" value={pickupAddress} onChange={e => setPickupAddress(e.target.value)} className="w-full bg-white rounded-md px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black shadow-sm" />
-                        </Autocomplete>
-                      ) : (
-                        <input type="text" placeholder="Loading Pickup location..." value={pickupAddress} onChange={e => setPickupAddress(e.target.value)} className="w-full bg-white rounded-md px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black shadow-sm" />
-                      )}
-                    </div>
-
-                    <div className="relative z-10 flex items-center">
-                      <div className="w-2 h-2 bg-black absolute -left-[27px]"></div>
-                      {isMapLoaded ? (
-                        <Autocomplete
-                          onLoad={(a) => setDropoffAutocomplete(a)}
-                          onPlaceChanged={() => {
-                            if (dropoffAutocomplete !== null) {
-                              const place = dropoffAutocomplete.getPlace();
-                              if (place.geometry && place.geometry.location) {
-                                setDropoffAddress(place.formatted_address || place.name || '');
-                                setDropoffLocation({
-                                  lat: place.geometry.location.lat(),
-                                  lng: place.geometry.location.lng(),
-                                  address: place.formatted_address || place.name || ''
-                                });
-                              }
-                            }
-                          }}
-                          className="w-full"
-                        >
-                          <input type="text" placeholder="Drop location" value={dropoffAddress} onChange={e => setDropoffAddress(e.target.value)} className="w-full bg-transparent px-4 py-3 text-sm focus:outline-none focus:bg-white focus:ring-2 focus:ring-black rounded-md shadow-sm" />
-                        </Autocomplete>
-                      ) : (
-                        <input type="text" placeholder="Loading Drop location..." value={dropoffAddress} onChange={e => setDropoffAddress(e.target.value)} className="w-full bg-transparent px-4 py-3 text-sm focus:outline-none focus:bg-white focus:ring-2 focus:ring-black rounded-md shadow-sm" />
-                      )}
-                    </div>
+              </>
+            ) : (
+              <div className="space-y-4">
+                {isHistoryLoading ? (
+                  <div className="text-center py-12">
+                    <div className="w-8 h-8 border-4 border-black border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
+                    <p className="text-muted text-sm">Loading rides...</p>
                   </div>
-                </div>
+                ) : historyBookings.length === 0 ? (
+                  <div className="text-center py-16 border-2 border-dashed border-border rounded-2xl bg-surface/30">
+                    <span className="text-4xl block mb-3">🚚</span>
+                    <h3 className="font-bold text-primary mb-1">No rides found</h3>
+                    <p className="text-xs text-muted mb-4">You haven't requested any shipments yet.</p>
+                    <button onClick={() => setActiveTab('booking')} className="btn-primary text-xs py-2 px-4 rounded-lg bg-black text-white hover:bg-[#222]">Book a Ride</button>
+                  </div>
+                ) : (
+                  historyBookings.map((b) => (
+                    <div
+                      key={b._id}
+                      onClick={() => {
+                        if (b.pickupLocation && b.dropLocation) {
+                          setPickupLocation({ lat: b.pickupLocation.latitude, lng: b.pickupLocation.longitude, address: b.pickupLocation.address });
+                          setDropoffLocation({ lat: b.dropLocation.latitude, lng: b.dropLocation.longitude, address: b.dropLocation.address });
+                          setPickupAddress(b.pickupLocation.address);
+                          setDropoffAddress(b.dropLocation.address);
+                        }
+                      }}
+                      className="border border-border rounded-2xl p-4 bg-white hover:border-black cursor-pointer transition-all shadow-sm group text-left"
+                    >
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <span className="text-[10px] font-mono font-bold text-muted bg-surface px-2 py-0.5 rounded">
+                            ID: {b._id.slice(-6).toUpperCase()}
+                          </span>
+                          <span className="text-[10px] text-muted ml-2">
+                            {new Date(b.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                        <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${
+                          b.status === 'completed' ? 'bg-green-100 text-green-700' :
+                          b.status === 'cancelled' ? 'bg-red-100 text-red-700' :
+                          b.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
+                          b.status === 'accepted' ? 'bg-indigo-100 text-indigo-700' :
+                          'bg-amber-100 text-amber-700'
+                        }`}>
+                          {b.status}
+                        </span>
+                      </div>
+
+                      <div className="flex gap-3 mb-3">
+                        <div className="w-10 h-10 bg-surface rounded-xl flex items-center justify-center text-xl shrink-0">
+                          {b.vehicleType.toLowerCase().includes('bike') ? '🛵' : '🚚'}
+                        </div>
+                        <div>
+                          <h4 className="font-bold text-primary text-sm">{b.vehicleType}</h4>
+                          <p className="text-xs text-muted">{b.category || 'Logistics'} • {b.subcategory || b.loadType || 'cargo'}</p>
+                        </div>
+                      </div>
+
+                      <div className="relative pl-6 space-y-2 text-xs mb-3">
+                        <div className="absolute left-[5px] top-1.5 bottom-1.5 w-0.5 bg-border"></div>
+                        <div className="relative">
+                          <div className="w-1.5 h-1.5 bg-black rounded-full absolute -left-[24px] top-1"></div>
+                          <p className="text-primary truncate font-medium"><span className="text-muted">From:</span> {b.pickupLocation?.address}</p>
+                        </div>
+                        <div className="relative">
+                          <div className="w-1.5 h-1.5 bg-accent absolute -left-[24px] top-1"></div>
+                          <p className="text-primary truncate font-medium"><span className="text-muted">To:</span> {b.dropLocation?.address}</p>
+                        </div>
+                      </div>
+
+                      <div className="border-t border-border/50 pt-3 flex justify-between items-center text-xs">
+                        <div>
+                          <span className="text-muted">Fare:</span>
+                          <span className="font-black text-primary ml-1 text-sm">₹{b.pricing?.totalFare || b.price?.total || 0}</span>
+                          <span className="text-[10px] text-muted ml-1 uppercase">({b.paymentMethod || 'Cash'})</span>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex gap-2">
+                          {['requested', 'accepted'].includes(b.status) && (
+                            <button
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                if (confirm("Are you sure you want to cancel this booking?")) {
+                                  try {
+                                    const cancelRes = await fetch(`${API_URL}/api/users/bookings/${b._id}/cancel`, {
+                                      method: 'PUT',
+                                      headers: { 'Content-Type': 'application/json' },
+                                      credentials: 'include',
+                                      body: JSON.stringify({ reason: 'Cancelled by user' })
+                                    });
+                                    if (cancelRes.ok) {
+                                      fetchHistory();
+                                    } else {
+                                      alert("Failed to cancel booking.");
+                                    }
+                                  } catch {
+                                    alert("Network error.");
+                                  }
+                                }
+                              }}
+                              className="text-[10px] font-bold text-red-600 bg-red-50 hover:bg-red-100 px-2 py-1 rounded"
+                            >
+                              Cancel
+                            </button>
+                          )}
+                          {['completed', 'cancelled'].includes(b.status) && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setPickupAddress(b.pickupLocation?.address || '');
+                                setPickupLocation({ lat: b.pickupLocation?.latitude, lng: b.pickupLocation?.longitude, address: b.pickupLocation?.address });
+                                setDropoffAddress(b.dropLocation?.address || '');
+                                setDropoffLocation({ lat: b.dropLocation?.latitude, lng: b.dropLocation?.longitude, address: b.dropLocation?.address });
+                                setSelectedCategory(b.category);
+                                setSelectedCargo({ name: b.subcategory || b.loadType, _id: b.subcategory });
+                                setStep(3); // Go to vehicle recommendations
+                                setActiveTab('booking');
+                              }}
+                              className="text-[10px] font-bold text-primary bg-surface group-hover:bg-border px-2 py-1 rounded transition-colors"
+                            >
+                              Book Again
+                            </button>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Driver info if accepted */}
+                      {b.driverId && (
+                        <div className="mt-3 pt-3 border-t border-border/50 bg-surface/50 rounded-xl p-2 flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-full bg-white border border-border flex items-center justify-center font-bold text-primary text-xs">
+                            {b.driverId.fullName?.charAt(0)}
+                          </div>
+                          <div>
+                            <p className="text-[11px] font-bold text-primary">{b.driverId.fullName}</p>
+                            <p className="text-[9px] text-muted">{b.driverId.vehicleDetails?.numberPlate || 'CARGEX'} • {b.driverId.phone}</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))
+                )}
               </div>
             )}
           </div>
 
-          {step === 4 && (
+          {activeTab === 'booking' && step === 4 && selectedVehicle && (
             <div className="p-6 border-t border-border bg-white mt-auto z-20">
               <button className="flex justify-between items-center w-full py-4 px-5 bg-white hover:bg-surface rounded-xl transition-colors border-2 border-border mb-4 shadow-sm" onClick={() => setShowPaymentModal(true)}>
                 <div className="flex items-center gap-3">
@@ -475,30 +757,12 @@ export default function UserDashboard() {
         </div>
 
         <div className="flex-1 bg-surfaceHighlight relative h-[35vh] md:h-full flex flex-col items-center justify-center z-0">
-          {isMapLoaded ? (
-            <GoogleMap
-              mapContainerStyle={mapContainerStyle}
-              center={pickupLocation || DEFAULT_CENTER}
-              zoom={13}
-              options={mapOptions}
-              onLoad={map => setMap(map)}
-            >
-              {pickupLocation && <Marker position={{ lat: pickupLocation.lat, lng: pickupLocation.lng }} label="A" />}
-              {dropoffLocation && <Marker position={{ lat: dropoffLocation.lat, lng: dropoffLocation.lng }} label="B" />}
-              {driverLocation && <Marker position={driverLocation} icon={{ url: 'https://maps.google.com/mapfiles/ms/icons/truck.png', scaledSize: new window.google.maps.Size(32, 32) }} />}
-              {directionsResponse && (
-                <DirectionsRenderer
-                  directions={directionsResponse}
-                  options={{ suppressMarkers: true, polylineOptions: { strokeColor: '#10B981', strokeWeight: 5 } }}
-                />
-              )}
-            </GoogleMap>
-          ) : (
-            <>
-              <svg className="w-12 h-12 text-muted z-10 mb-2 opacity-50 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" /></svg>
-              <span className="text-muted tracking-widest text-xs uppercase font-bold z-10 opacity-50">Loading Map...</span>
-            </>
-          )}
+          <LeafletMap
+            pickupLocation={pickupLocation}
+            dropoffLocation={dropoffLocation}
+            driverLocation={driverLocation ? { lat: driverLocation.lat, lng: driverLocation.lng } : null}
+            darkMode={false}
+          />
         </div>
       </div>
 

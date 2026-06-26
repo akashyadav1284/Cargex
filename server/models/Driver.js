@@ -8,6 +8,10 @@ const driverSchema = new mongoose.Schema({
   password: { type: String },
   profileImage: { type: String, default: '' },
   
+  // Agency & Fleet Relations
+  agencyId: { type: mongoose.Schema.Types.ObjectId, ref: 'Agency' },
+  assignedVehicleId: { type: mongoose.Schema.Types.ObjectId, ref: 'Vehicle' },
+  
   // Base Profile details
   address: { type: String, default: '' },
   city: { type: String, default: '' },

@@ -178,6 +178,8 @@ app.use('/api/wallet', require('./routes/walletRoutes'));
 // app.use('/api/safety', require('./routes/safetyRoutes'));
 // app.use('/api/heatmap', require('./routes/heatmapRoutes'));
 
+app.use('/api/agency', require('./routes/agencyRoutes'));
+
 // Pricing Engine API
 app.use('/api/fare', require('./routes/fareRoutes'));
 

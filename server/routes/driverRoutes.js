@@ -10,7 +10,8 @@ const {
   getProfile,
   updateProfile,
   getRides,
-  getVehicles
+  getVehicles,
+  getActiveRequest
 } = require('../controllers/driverController');
 const { protectDriver } = require('../middleware/authMiddleware');
 
@@ -26,5 +27,6 @@ router.get('/profile', protectDriver, getProfile);
 router.put('/update-profile', protectDriver, updateProfile);
 router.get('/rides', protectDriver, getRides);
 router.get('/vehicles', protectDriver, getVehicles);
+router.get('/active-request', protectDriver, getActiveRequest);
 
 module.exports = router;

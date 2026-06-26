@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const Driver = require('../models/Driver');
 const Booking = require('../models/Booking');
+const Agency = require('../models/Agency');
 
 // ─────────────────────────────────────────────
 // STATS
@@ -424,6 +425,76 @@ const deleteUser = async (req, res) => {
 };
 
 // ─────────────────────────────────────────────
+// AGENCIES
+// ─────────────────────────────────────────────
+const createAgency = async (req, res) => {
+  const { name, email, password, phone, ownerName, companyRegistrationNumber, address } = req.body;
+  try {
+    if (await Agency.findOne({ email })) return res.status(400).json({ message: 'Agency email already exists' });
+    const agency = await Agency.create({
+      name, email, password, phone, ownerName, companyRegistrationNumber, address, status: 'active'
+    });
+    res.status(201).json(agency);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+const getAllAgencies = async (req, res) => {
+  try {
+    const agencies = await Agency.find({}).select('-password').sort({ createdAt: -1 }).lean();
+    res.json(agencies);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+const getAgencyById = async (req, res) => {
+  try {
+    const agency = await Agency.findById(req.params.id).select('-password').lean();
+    if (!agency) return res.status(404).json({ message: 'Agency not found' });
+    
+    // Also fetch their drivers and vehicles stats
+    const totalDrivers = await Driver.countDocuments({ agencyId: agency._id });
+    const totalVehicles = await require('../models/Vehicle').countDocuments({ agencyId: agency._id });
+    
+    res.json({ agency, stats: { totalDrivers, totalVehicles } });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+const updateAgency = async (req, res) => {
+  try {
+    // If password is included, hash it or handle separately. Mongoose pre-save handles it if using save().
+    // For findByIdAndUpdate, password hashing must be done manually if updating password here.
+    const updateData = { ...req.body };
+    if (updateData.password) {
+      const bcrypt = require('bcryptjs');
+      const salt = await bcrypt.genSalt(10);
+      updateData.password = await bcrypt.hash(updateData.password, salt);
+    }
+    const agency = await Agency.findByIdAndUpdate(req.params.id, updateData, { new: true }).select('-password');
+    if (!agency) return res.status(404).json({ message: 'Agency not found' });
+    res.json(agency);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+const deleteAgency = async (req, res) => {
+  try {
+    const agency = await Agency.findById(req.params.id);
+    if (!agency) return res.status(404).json({ message: 'Agency not found' });
+    // Soft delete or cascade delete. For now, hard delete.
+    await agency.deleteOne();
+    res.json({ message: 'Agency deleted' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// ─────────────────────────────────────────────
 // VEHICLES
 // ─────────────────────────────────────────────
 const VehicleType = require('../models/VehicleType');
@@ -482,4 +553,5 @@ module.exports = {
   getAllUsers, getUserById, blockUser, deleteUser,
   getAllVehicleTypes, createVehicleType, updateVehiclePricing, toggleVehicleStatus,
   setSurgeMultiplier,
+  createAgency, getAllAgencies, getAgencyById, updateAgency, deleteAgency,
 };
