@@ -45,6 +45,10 @@ const Sidebar = () => {
           <LogOut className="w-5 h-5" />
           <span>Logout</span>
         </button>
+        <div className="border-t border-zinc-800 pt-3 mt-2 text-[10px] text-zinc-500 space-y-1">
+          <p className="font-semibold text-zinc-400">"We are here to support your fleet 24/7."</p>
+          <p className="font-bold text-blue-500">Helpline: +91 9467658854</p>
+        </div>
       </div>
     </div>
   );

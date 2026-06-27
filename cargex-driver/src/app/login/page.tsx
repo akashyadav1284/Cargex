@@ -67,6 +67,14 @@ export default function DriverLogin() {
           </p>
         </div>
       </div>
+
+      {/* Footer helpline quote */}
+      <footer className="w-full bg-white border-t border-border py-6 z-10">
+        <div className="max-w-7xl mx-auto px-6 text-center text-xs text-muted">
+          <p className="font-semibold">"Driven by reliability, supported by our team."</p>
+          <p className="mt-1 font-bold text-primary">Instant Driver Partner Helpline: +91 9467658854</p>
+        </div>
+      </footer>
     </div>
   );
 }

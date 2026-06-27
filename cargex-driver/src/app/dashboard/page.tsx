@@ -272,7 +272,7 @@ export default function DriverDashboard() {
   );
 
   return (
-    <div className="min-h-screen bg-surface text-foreground font-sans">
+    <div className="min-h-screen bg-surface text-foreground font-sans flex flex-col">
       {/* Header */}
       <header className="bg-white border-b border-border sticky top-0 z-30 shadow-sm">
         <div className="max-w-7xl mx-auto px-6 h-16 flex justify-between items-center">
@@ -538,6 +538,13 @@ export default function DriverDashboard() {
         </div>
       )}
 
+      {/* Footer helpline quote */}
+      <footer className="w-full bg-white border-t border-border py-4 mt-auto">
+        <div className="max-w-7xl mx-auto px-6 text-center text-xs text-muted">
+          <p className="font-semibold">"Driven by reliability, supported by our team."</p>
+          <p className="mt-1 font-bold text-primary">Instant Driver Partner Helpline: +91 9467658854</p>
+        </div>
+      </footer>
     </div>
   );
 }

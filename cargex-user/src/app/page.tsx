@@ -146,6 +146,9 @@ export default function Home() {
           {/* Bottom Bar */}
           <div className="border-t border-gray-800 pt-8 flex flex-col md:flex-row justify-between items-center text-xs text-gray-500">
             <p>© 2026 Cargex Technologies Inc. All rights reserved.</p>
+            <p className="mt-4 md:mt-0 italic font-semibold text-gray-400 text-center">
+              "Need assistance? Our instant helpline is here to support you 24/7." — Call <span className="text-white font-bold">+91 9467658854</span>
+            </p>
             <div className="flex gap-6 mt-4 md:mt-0">
               <span className="hover:text-gray-300 cursor-pointer transition-colors">Designed for modern logistics</span>
             </div>
