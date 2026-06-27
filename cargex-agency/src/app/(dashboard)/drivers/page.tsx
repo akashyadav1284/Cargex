@@ -36,6 +36,11 @@ export default function DriversPage() {
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
+  // Additional action states
+  const [selectedDriver, setSelectedDriver] = useState<any | null>(null);
+  const [driverToAssignVehicle, setDriverToAssignVehicle] = useState<any | null>(null);
+  const [vehicles, setVehicles] = useState<any[]>([]);
+
   const fetchDrivers = async () => {
     try {
       const res = await api.get('/api/agency/drivers');
@@ -44,6 +49,40 @@ export default function DriversPage() {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchVehicles = async () => {
+    try {
+      const res = await api.get('/api/agency/vehicles');
+      setVehicles(res.data.data || res.data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleToggleStatus = async (id: string) => {
+    if (!confirm('Are you sure you want to change this driver\'s status?')) return;
+    try {
+      const res = await api.post(`/api/agency/drivers/${id}/toggle-status`, {});
+      if (res.status === 200 || res.data.success) {
+        fetchDrivers();
+      }
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to toggle driver status');
+    }
+  };
+
+  const handleAssignVehicleSubmit = async (vehicleId: string) => {
+    if (!driverToAssignVehicle) return;
+    try {
+      const res = await api.post(`/api/agency/drivers/${driverToAssignVehicle._id}/assign-vehicle`, { vehicleId });
+      if (res.status === 200 || res.data.success) {
+        setDriverToAssignVehicle(null);
+        fetchDrivers();
+      }
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to assign vehicle');
     }
   };
 
@@ -168,11 +207,27 @@ export default function DriversPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="bg-zinc-900 border-zinc-800 text-zinc-200">
                           <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          <DropdownMenuItem className="hover:bg-zinc-800 focus:bg-zinc-800 cursor-pointer">View Profile</DropdownMenuItem>
-                          <DropdownMenuItem className="hover:bg-zinc-800 focus:bg-zinc-800 cursor-pointer">Assign Vehicle</DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={() => setSelectedDriver(driver)}
+                            className="hover:bg-zinc-800 focus:bg-zinc-800 cursor-pointer"
+                          >
+                            View Profile
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={async () => {
+                              setDriverToAssignVehicle(driver);
+                              await fetchVehicles();
+                            }}
+                            className="hover:bg-zinc-800 focus:bg-zinc-800 cursor-pointer"
+                          >
+                            Assign Vehicle
+                          </DropdownMenuItem>
                           <DropdownMenuSeparator className="bg-zinc-800" />
-                          <DropdownMenuItem className="text-red-500 hover:bg-red-500/10 hover:text-red-500 focus:bg-red-500/10 focus:text-red-500 cursor-pointer">
-                            Deactivate Driver
+                          <DropdownMenuItem 
+                            onClick={() => handleToggleStatus(driver._id)}
+                            className="text-red-500 hover:bg-red-500/10 hover:text-red-500 focus:bg-red-500/10 focus:text-red-500 cursor-pointer"
+                          >
+                            {driver.status === 'blocked' ? 'Activate Driver' : 'Deactivate Driver'}
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -262,6 +317,184 @@ export default function DriversPage() {
                 </Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* View Driver Profile Modal */}
+      {selectedDriver && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-zinc-950 border border-zinc-800 rounded-2xl w-full max-w-lg shadow-2xl p-6 text-white max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-150">
+            <div className="flex justify-between items-start mb-6">
+              <div>
+                <h2 className="text-xl font-bold">{selectedDriver.fullName || selectedDriver.name}</h2>
+                <p className="text-xs text-zinc-500 font-mono mt-1">ID: {selectedDriver._id}</p>
+              </div>
+              <span className={`text-xs px-2.5 py-1 rounded-full font-semibold capitalize ${
+                selectedDriver.status === "approved" ? "bg-green-500/10 text-green-500" :
+                selectedDriver.status === "blocked" ? "bg-red-500/10 text-red-500" : "bg-yellow-500/10 text-yellow-500"
+              }`}>
+                {selectedDriver.status || "Pending"}
+              </span>
+            </div>
+
+            <div className="space-y-4">
+              {/* Contact info */}
+              <div className="bg-zinc-900/50 p-4 rounded-xl border border-zinc-800/80 grid grid-cols-2 gap-4">
+                <div>
+                  <div className="text-xs text-zinc-500">Phone</div>
+                  <div className="text-sm font-semibold">{selectedDriver.phone || "No phone"}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-zinc-500">Email</div>
+                  <div className="text-sm font-semibold">{selectedDriver.email || "No email"}</div>
+                </div>
+              </div>
+
+              {/* Stats */}
+              <div className="grid grid-cols-3 gap-3">
+                <div className="bg-zinc-900/50 p-3 rounded-xl border border-zinc-800/80 text-center">
+                  <div className="text-xs text-zinc-500">Completed Rides</div>
+                  <div className="text-lg font-bold text-white mt-1">{selectedDriver.completedRides || selectedDriver.totalRides || 0}</div>
+                </div>
+                <div className="bg-zinc-900/50 p-3 rounded-xl border border-zinc-800/80 text-center">
+                  <div className="text-xs text-zinc-500">Rating</div>
+                  <div className="text-lg font-bold text-yellow-500 mt-1 flex items-center justify-center gap-1">
+                    {selectedDriver.ratings?.averageRating || selectedDriver.rating || 0} <span>★</span>
+                  </div>
+                </div>
+                <div className="bg-zinc-900/50 p-3 rounded-xl border border-zinc-800/80 text-center">
+                  <div className="text-xs text-zinc-500">Total Earnings</div>
+                  <div className="text-lg font-bold text-green-500 mt-1">₹{selectedDriver.earnings?.totalEarnings || 0}</div>
+                </div>
+              </div>
+
+              {/* Vehicle Assignment */}
+              <div className="bg-zinc-900/50 p-4 rounded-xl border border-zinc-800/80">
+                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Assigned Vehicle Details</h3>
+                {selectedDriver.assignedVehicleId ? (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <div className="text-xs text-zinc-500">PLATE NUMBER</div>
+                      <div className="text-sm font-semibold">{selectedDriver.assignedVehicleId.numberPlate}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-zinc-500">MODEL & TYPE</div>
+                      <div className="text-sm font-semibold">
+                        {selectedDriver.assignedVehicleId.model || "N/A"} • {selectedDriver.vehicleDetails?.type || "N/A"}
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-sm text-zinc-500 italic">No vehicle assigned to this driver. Use 'Assign Vehicle' action to link one.</div>
+                )}
+              </div>
+
+              {/* Document details */}
+              <div className="bg-zinc-900/50 p-4 rounded-xl border border-zinc-800/80">
+                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Documents Verification</h3>
+                <div className="grid grid-cols-2 gap-2.5 text-xs text-zinc-300">
+                  <div className="flex justify-between p-2 rounded bg-zinc-950/40">
+                    <span>Driving License:</span>
+                    <span className="font-semibold text-zinc-400">{selectedDriver.documents?.license ? 'Uploaded' : 'Missing'}</span>
+                  </div>
+                  <div className="flex justify-between p-2 rounded bg-zinc-950/40">
+                    <span>Registration Certificate (RC):</span>
+                    <span className="font-semibold text-zinc-400">{selectedDriver.documents?.rc ? 'Uploaded' : 'Missing'}</span>
+                  </div>
+                  <div className="flex justify-between p-2 rounded bg-zinc-950/40">
+                    <span>Insurance Proof:</span>
+                    <span className="font-semibold text-zinc-400">{selectedDriver.documents?.insurance ? 'Uploaded' : 'Missing'}</span>
+                  </div>
+                  <div className="flex justify-between p-2 rounded bg-zinc-950/40">
+                    <span>ID Proof:</span>
+                    <span className="font-semibold text-zinc-400">{selectedDriver.documents?.idProof ? 'Uploaded' : 'Missing'}</span>
+                  </div>
+                </div>
+                <div className="mt-3 flex items-center gap-2 text-sm">
+                  <span className="text-xs text-zinc-500 font-medium">VERIFICATION STATUS:</span>
+                  <span className={`text-xs font-bold uppercase ${
+                    selectedDriver.documents?.verifiedStatus === "verified" ? "text-green-500" :
+                    selectedDriver.documents?.verifiedStatus === "rejected" ? "text-red-500" : "text-yellow-500"
+                  }`}>
+                    {selectedDriver.documents?.verifiedStatus || 'Pending'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end mt-6 pt-4 border-t border-zinc-800">
+              <Button
+                variant="outline"
+                className="bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white"
+                onClick={() => setSelectedDriver(null)}
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Assign Vehicle Modal */}
+      {driverToAssignVehicle && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-zinc-950 border border-zinc-800 rounded-2xl w-full max-w-md shadow-2xl p-6 text-white max-h-[85vh] overflow-y-auto animate-in zoom-in-95 duration-150">
+            <h2 className="text-xl font-bold mb-1">Assign Vehicle</h2>
+            <p className="text-sm text-zinc-400 mb-4">Select a fleet vehicle to assign to {driverToAssignVehicle.fullName || driverToAssignVehicle.name}</p>
+
+            <div className="space-y-2 max-h-[45vh] overflow-y-auto pr-1">
+              <div 
+                onClick={() => handleAssignVehicleSubmit("")}
+                className="flex items-center justify-between p-3 rounded-xl border border-dashed border-red-500/30 bg-red-500/5 hover:bg-red-500/10 cursor-pointer transition-colors text-red-400 text-sm font-semibold"
+              >
+                <span>Unassign / Clear Vehicle</span>
+                <span>Remove association</span>
+              </div>
+
+              {vehicles.length === 0 ? (
+                <div className="text-zinc-500 text-center py-6 text-sm italic">
+                  No vehicles registered in your fleet. Add vehicles in the Vehicles tab.
+                </div>
+              ) : (
+                vehicles.map((vehicle) => {
+                  const isAssigned = vehicle.driverId && vehicle.driverId._id !== driverToAssignVehicle._id;
+                  return (
+                    <div 
+                      key={vehicle._id} 
+                      onClick={() => !isAssigned && handleAssignVehicleSubmit(vehicle._id)}
+                      className={`flex items-center justify-between p-3 rounded-xl border border-zinc-800 transition-colors ${
+                        isAssigned ? 'bg-zinc-900/10 opacity-55 cursor-not-allowed' : 'bg-zinc-900/30 hover:bg-zinc-900/60 cursor-pointer'
+                      }`}
+                    >
+                      <div>
+                        <div className="font-semibold text-sm">
+                          {vehicle.numberPlate}
+                        </div>
+                        <div className="text-xs text-zinc-500 mt-0.5">
+                          {vehicle.name} ({vehicle.model || 'No model'}) • {vehicle.typeId?.name || 'Category N/A'}
+                        </div>
+                      </div>
+                      {isAssigned ? (
+                        <span className="text-xs text-zinc-500 italic">Assigned to: {vehicle.driverId.fullName || vehicle.driverId.name}</span>
+                      ) : (
+                        <span className="text-xs text-blue-500 font-semibold">Select</span>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="flex justify-end mt-6 pt-4 border-t border-zinc-800">
+              <Button
+                variant="ghost"
+                className="hover:bg-zinc-800 text-zinc-400 hover:text-white"
+                onClick={() => setDriverToAssignVehicle(null)}
+              >
+                Cancel
+              </Button>
+            </div>
           </div>
         </div>
       )}

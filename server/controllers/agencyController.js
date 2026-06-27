@@ -347,3 +347,254 @@ exports.updatePassword = async (req, res) => {
     res.status(500).json({ success: false, message: error.message || 'Server error' });
   }
 };
+
+// @desc    Assign driver to booking
+// @route   POST /api/agency/bookings/:id/assign
+// @access  Private (Agency)
+exports.assignDriver = async (req, res) => {
+  try {
+    const { driverId } = req.body;
+    const bookingId = req.params.id;
+    const agencyId = req.user._id;
+
+    const booking = await Booking.findById(bookingId);
+    if (!booking) {
+      return res.status(404).json({ success: false, message: 'Booking not found' });
+    }
+
+    // Verify driver belongs to this agency
+    const driver = await Driver.findOne({ _id: driverId, agencyId });
+    if (!driver) {
+      return res.status(403).json({ success: false, message: 'Driver does not belong to your agency or does not exist.' });
+    }
+
+    // Verify booking is assignable
+    if (!['requested', 'pending', 'accepted'].includes(booking.status)) {
+      return res.status(400).json({ success: false, message: 'Booking cannot be assigned in its current status.' });
+    }
+
+    // Assign driver to booking
+    booking.driverId = driverId;
+    booking.status = 'accepted';
+    
+    // Also try to find a vehicle assigned to this driver and attach it
+    const Vehicle = require('../models/Vehicle');
+    const vehicle = await Vehicle.findOne({ driverId });
+    if (vehicle) {
+      booking.vehicleId = vehicle._id;
+    }
+
+    await booking.save();
+
+    // Broadcast socket event
+    if (req.io) {
+      req.io.to(`driver_${driverId}`).emit('new_ride_request', booking);
+      req.io.to(booking._id.toString()).emit('driver_assigned', await booking.populate('driverId', 'fullName phone vehicleDetails'));
+    }
+
+    res.json({ success: true, message: 'Driver assigned successfully', data: booking });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: error.message || 'Server error' });
+  }
+};
+
+// @desc    Cancel booking
+// @route   POST /api/agency/bookings/:id/cancel
+// @access  Private (Agency)
+exports.cancelBooking = async (req, res) => {
+  try {
+    const bookingId = req.params.id;
+    const agencyId = req.user._id;
+
+    // Retrieve booking and verify permissions
+    const booking = await Booking.findById(bookingId);
+    if (!booking) {
+      return res.status(404).json({ success: false, message: 'Booking not found' });
+    }
+
+    // Check if the agency is allowed to cancel: must be owner, or have a driver assigned to it who is in this agency
+    let isAuthorized = false;
+    if (booking.agencyId && booking.agencyId.toString() === agencyId.toString()) {
+      isAuthorized = true;
+    } else if (booking.driverId) {
+      const driver = await Driver.findOne({ _id: booking.driverId, agencyId });
+      if (driver) {
+        isAuthorized = true;
+      }
+    } else if (booking.status === 'requested') {
+      // Requested bookings are public and can be cancelled/rejected by the agency
+      isAuthorized = true;
+    }
+
+    if (!isAuthorized) {
+      return res.status(403).json({ success: false, message: 'You are not authorized to cancel this booking.' });
+    }
+
+    if (['completed', 'cancelled'].includes(booking.status)) {
+      return res.status(400).json({ success: false, message: `Booking already ${booking.status}` });
+    }
+
+    booking.status = 'cancelled';
+    booking.cancellationReason = req.body.reason || 'Cancelled by agency';
+    await booking.save();
+
+    // Broadcast socket event
+    if (req.io) {
+      req.io.to('available_drivers').emit('ride_cancelled', { bookingId: booking._id.toString() });
+      req.io.to(booking._id.toString()).emit('ride_cancelled', { bookingId: booking._id.toString() });
+    }
+
+    res.json({ success: true, message: 'Booking cancelled successfully', data: booking });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: error.message || 'Server error' });
+  }
+};
+
+// @desc    Assign vehicle to driver
+// @route   POST /api/agency/drivers/:id/assign-vehicle
+// @access  Private (Agency)
+exports.assignVehicle = async (req, res) => {
+  try {
+    const driverId = req.params.id;
+    const { vehicleId } = req.body;
+    const agencyId = req.user._id;
+
+    const driver = await Driver.findOne({ _id: driverId, agencyId });
+    if (!driver) {
+      return res.status(404).json({ success: false, message: 'Driver not found' });
+    }
+
+    // If there was a previously assigned vehicle, clear its driverId and set it to idle
+    if (driver.assignedVehicleId) {
+      await Vehicle.findByIdAndUpdate(driver.assignedVehicleId, { driverId: null, status: 'idle' });
+    }
+
+    if (!vehicleId) {
+      // Just unassigning
+      driver.assignedVehicleId = null;
+      driver.vehicleDetails = undefined;
+      await driver.save();
+      return res.json({ success: true, message: 'Vehicle unassigned successfully', data: driver });
+    }
+
+    const vehicle = await Vehicle.findOne({ _id: vehicleId, agencyId }).populate('typeId');
+    if (!vehicle) {
+      return res.status(404).json({ success: false, message: 'Vehicle not found' });
+    }
+
+    // If vehicle was assigned to another driver, clear that driver's vehicle assignments
+    if (vehicle.driverId) {
+      await Driver.findByIdAndUpdate(vehicle.driverId, { assignedVehicleId: null, vehicleDetails: undefined });
+    }
+
+    // Update vehicle association
+    vehicle.driverId = driverId;
+    vehicle.status = 'active';
+    await vehicle.save();
+
+    // Update driver association
+    driver.assignedVehicleId = vehicleId;
+    driver.vehicleDetails = {
+      type: vehicle.typeId?.name || '',
+      name: vehicle.name || '',
+      model: vehicle.model || '',
+      numberPlate: vehicle.numberPlate,
+      capacity: vehicle.capacity || vehicle.typeId?.capacityKg || 0
+    };
+    await driver.save();
+
+    res.json({ success: true, message: 'Vehicle assigned successfully', data: driver });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: error.message || 'Server error' });
+  }
+};
+
+// @desc    Toggle driver status (approved vs blocked)
+// @route   POST /api/agency/drivers/:id/toggle-status
+// @access  Private (Agency)
+exports.toggleDriverStatus = async (req, res) => {
+  try {
+    const driverId = req.params.id;
+    const agencyId = req.user._id;
+
+    const driver = await Driver.findOne({ _id: driverId, agencyId });
+    if (!driver) {
+      return res.status(404).json({ success: false, message: 'Driver not found' });
+    }
+
+    const newStatus = driver.status === 'blocked' ? 'approved' : 'blocked';
+    driver.status = newStatus;
+    driver.isApproved = newStatus === 'approved';
+    await driver.save();
+
+    res.json({ success: true, message: `Driver ${newStatus === 'approved' ? 'activated' : 'deactivated'} successfully`, data: driver });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: error.message || 'Server error' });
+  }
+};
+
+// @desc    Update vehicle documents verification status
+// @route   PUT /api/agency/vehicles/:id/documents
+// @access  Private (Agency)
+exports.updateVehicleDocuments = async (req, res) => {
+  try {
+    const vehicleId = req.params.id;
+    const agencyId = req.user._id;
+    const { rc, insurance, pollution, verifiedStatus } = req.body;
+
+    const vehicle = await Vehicle.findOne({ _id: vehicleId, agencyId });
+    if (!vehicle) {
+      return res.status(404).json({ success: false, message: 'Vehicle not found' });
+    }
+
+    if (rc !== undefined) vehicle.documents.rc = rc;
+    if (insurance !== undefined) vehicle.documents.insurance = insurance;
+    if (pollution !== undefined) vehicle.documents.pollution = pollution;
+    if (verifiedStatus !== undefined) {
+      vehicle.documents.verifiedStatus = verifiedStatus;
+      vehicle.docsStatus = verifiedStatus;
+    }
+
+    await vehicle.save();
+    res.json({ success: true, message: 'Vehicle documents updated successfully', data: vehicle });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: error.message || 'Server error' });
+  }
+};
+
+// @desc    Log vehicle maintenance
+// @route   POST /api/agency/vehicles/:id/maintenance
+// @access  Private (Agency)
+exports.logVehicleMaintenance = async (req, res) => {
+  try {
+    const vehicleId = req.params.id;
+    const agencyId = req.user._id;
+    const { lastServiceDate, nextServiceDate, notes, status } = req.body;
+
+    const vehicle = await Vehicle.findOne({ _id: vehicleId, agencyId });
+    if (!vehicle) {
+      return res.status(404).json({ success: false, message: 'Vehicle not found' });
+    }
+
+    vehicle.maintenance = {
+      lastServiceDate: lastServiceDate ? new Date(lastServiceDate) : vehicle.maintenance?.lastServiceDate,
+      nextServiceDate: nextServiceDate ? new Date(nextServiceDate) : vehicle.maintenance?.nextServiceDate,
+      notes: notes !== undefined ? notes : vehicle.maintenance?.notes
+    };
+
+    if (status) {
+      vehicle.status = status;
+    }
+
+    await vehicle.save();
+    res.json({ success: true, message: 'Vehicle maintenance logged successfully', data: vehicle });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: error.message || 'Server error' });
+  }
+};

@@ -28,19 +28,61 @@ export default function BookingsPage() {
   const [bookings, setBookings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Modal / Action states
+  const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
+  const [drivers, setDrivers] = useState<any[]>([]);
+  const [bookingToAssign, setBookingToAssign] = useState<any | null>(null);
+
+  const fetchBookings = async () => {
+    try {
+      setLoading(true);
+      const res = await api.get('/api/agency/bookings');
+      setBookings(res.data.data || res.data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchDrivers = async () => {
+    try {
+      const res = await api.get('/api/agency/drivers');
+      setDrivers(res.data.data || res.data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   useEffect(() => {
-    const fetchBookings = async () => {
-      try {
-        const res = await api.get('/api/agency/bookings');
-        setBookings(res.data.data || res.data);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchBookings();
+    fetchDrivers();
   }, [api]);
+
+  const handleCancelBooking = async (id: string) => {
+    if (!confirm('Are you sure you want to cancel this booking?')) return;
+    try {
+      const res = await api.post(`/api/agency/bookings/${id}/cancel`, {});
+      if (res.status === 200 || res.data.success) {
+        fetchBookings();
+      }
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to cancel booking');
+    }
+  };
+
+  const handleAssignDriverSubmit = async (driverId: string) => {
+    if (!bookingToAssign) return;
+    try {
+      const res = await api.post(`/api/agency/bookings/${bookingToAssign._id}/assign`, { driverId });
+      if (res.status === 200 || res.data.success) {
+        setBookingToAssign(null);
+        fetchBookings();
+      }
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to assign driver');
+    }
+  };
 
   const filteredBookings = bookings.filter(b => {
     const term = searchTerm.toLowerCase();
@@ -155,12 +197,27 @@ export default function BookingsPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="bg-zinc-900 border-zinc-800 text-zinc-200">
                           <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          <DropdownMenuItem className="hover:bg-zinc-800 focus:bg-zinc-800 cursor-pointer">View Full Details</DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={() => setSelectedBooking(booking)}
+                            className="hover:bg-zinc-800 focus:bg-zinc-800 cursor-pointer"
+                          >
+                            View Full Details
+                          </DropdownMenuItem>
                           {(booking.status === "requested" || booking.status === "pending") && (
-                            <DropdownMenuItem className="hover:bg-zinc-800 focus:bg-zinc-800 cursor-pointer text-blue-500">Assign Driver</DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => setBookingToAssign(booking)}
+                              className="hover:bg-zinc-800 focus:bg-zinc-800 cursor-pointer text-blue-500"
+                            >
+                              Assign Driver
+                            </DropdownMenuItem>
                           )}
                           {(booking.status === "requested" || booking.status === "accepted") && (
-                            <DropdownMenuItem className="hover:bg-red-500/10 focus:bg-red-500/10 cursor-pointer text-red-500">Cancel Booking</DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => handleCancelBooking(booking._id)}
+                              className="hover:bg-red-500/10 focus:bg-red-500/10 cursor-pointer text-red-500"
+                            >
+                              Cancel Booking
+                            </DropdownMenuItem>
                           )}
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -172,6 +229,186 @@ export default function BookingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* View Booking Details Modal */}
+      {selectedBooking && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-zinc-950 border border-zinc-800 rounded-2xl w-full max-w-lg shadow-2xl p-6 text-white max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-150">
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <h2 className="text-xl font-bold">Booking Details</h2>
+                <p className="text-xs text-zinc-500 font-mono mt-1">ID: {selectedBooking._id}</p>
+              </div>
+              <span className={`text-xs px-2.5 py-1 rounded-full font-semibold capitalize ${getStatusStyle(selectedBooking.status)}`}>
+                {selectedBooking.status?.replace('_', ' ')}
+              </span>
+            </div>
+
+            <div className="space-y-4">
+              {/* Category and Items */}
+              <div className="bg-zinc-900/50 p-4 rounded-xl border border-zinc-800/80">
+                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Cargo & Category</h3>
+                <div className="text-sm font-semibold">{selectedBooking.category || "General Logistics"}</div>
+                {selectedBooking.items && selectedBooking.items.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {selectedBooking.items.map((item: string, idx: number) => (
+                      <span key={idx} className="bg-zinc-800 text-zinc-300 text-xs px-2 py-0.5 rounded-md">
+                        {item}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Route */}
+              <div className="bg-zinc-900/50 p-4 rounded-xl border border-zinc-800/80 space-y-3">
+                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Route Details</h3>
+                <div className="space-y-2">
+                  <div className="flex items-start gap-2.5">
+                    <MapPin className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
+                    <div>
+                      <div className="text-xs text-zinc-500 font-medium">PICKUP</div>
+                      <div className="text-sm text-zinc-300">{selectedBooking.pickupLocation?.address || "N/A"}</div>
+                      {selectedBooking.pickupLocation?.contactName && (
+                        <div className="text-xs text-zinc-400 mt-0.5">
+                          Contact: {selectedBooking.pickupLocation.contactName} ({selectedBooking.pickupLocation.contactPhone})
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2.5">
+                    <MapPin className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
+                    <div>
+                      <div className="text-xs text-zinc-500 font-medium">DROP-OFF</div>
+                      <div className="text-sm text-zinc-300">{selectedBooking.dropLocation?.address || "N/A"}</div>
+                      {selectedBooking.dropLocation?.contactName && (
+                        <div className="text-xs text-zinc-400 mt-0.5">
+                          Contact: {selectedBooking.dropLocation.contactName} ({selectedBooking.dropLocation.contactPhone})
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Driver & Vehicle */}
+              <div className="bg-zinc-900/50 p-4 rounded-xl border border-zinc-800/80">
+                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Assigned Driver & Vehicle</h3>
+                {selectedBooking.driverId ? (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <div className="text-xs text-zinc-500">DRIVER</div>
+                      <div className="text-sm font-semibold">{selectedBooking.driverId.fullName || selectedBooking.driverId.name}</div>
+                      <div className="text-xs text-zinc-400">{selectedBooking.driverId.phone}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-zinc-500">VEHICLE</div>
+                      <div className="text-sm font-semibold">{selectedBooking.vehicleId?.numberPlate || "Assigned Plate"}</div>
+                      <div className="text-xs text-zinc-400">{selectedBooking.vehicleId?.model || "Model N/A"}</div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-sm text-zinc-500 italic">No driver assigned to this booking yet.</div>
+                )}
+              </div>
+
+              {/* Price Details */}
+              <div className="bg-zinc-900/50 p-4 rounded-xl border border-zinc-800/80">
+                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Price Breakdown</h3>
+                <div className="space-y-1.5 text-sm">
+                  {selectedBooking.pricing && (
+                    <>
+                      <div className="flex justify-between text-zinc-400">
+                        <span>Base Fare</span>
+                        <span>₹{selectedBooking.pricing.baseFare || 0}</span>
+                      </div>
+                      <div className="flex justify-between text-zinc-400">
+                        <span>Distance Fare ({selectedBooking.distance || 0} km)</span>
+                        <span>₹{selectedBooking.pricing.distanceFare || 0}</span>
+                      </div>
+                      {selectedBooking.pricing.loadSurcharge > 0 && (
+                        <div className="flex justify-between text-zinc-400">
+                          <span>Load Surcharge</span>
+                          <span>₹{selectedBooking.pricing.loadSurcharge}</span>
+                        </div>
+                      )}
+                    </>
+                  )}
+                  <div className="flex justify-between font-bold text-white border-t border-zinc-800 pt-2 mt-2">
+                    <span>Total Fare</span>
+                    <span>₹{selectedBooking.pricing?.totalFare || selectedBooking.price?.total || selectedBooking.fare || 0}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end mt-6 pt-4 border-t border-zinc-800">
+              <Button
+                variant="outline"
+                className="bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white"
+                onClick={() => setSelectedBooking(null)}
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Assign Driver Modal */}
+      {bookingToAssign && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-zinc-950 border border-zinc-800 rounded-2xl w-full max-w-md shadow-2xl p-6 text-white max-h-[85vh] overflow-y-auto animate-in zoom-in-95 duration-150">
+            <h2 className="text-xl font-bold mb-1">Assign Driver</h2>
+            <p className="text-sm text-zinc-400 mb-4">Select an agency driver to assign to booking #{bookingToAssign._id.slice(-8)}</p>
+
+            <div className="space-y-2 max-h-[45vh] overflow-y-auto pr-1">
+              {drivers.length === 0 ? (
+                <div className="text-zinc-500 text-center py-6 text-sm italic">
+                  No drivers registered in your agency. Add drivers in the Drivers tab.
+                </div>
+              ) : (
+                drivers.map((driver) => {
+                  const isAvailable = driver.availabilityStatus === "active" || (!driver.availabilityStatus && driver.isOnline);
+                  return (
+                    <div 
+                      key={driver._id} 
+                      className="flex items-center justify-between p-3 rounded-xl border border-zinc-800 bg-zinc-900/30 hover:bg-zinc-900/60 transition-colors"
+                    >
+                      <div>
+                        <div className="font-semibold text-sm flex items-center gap-2">
+                          {driver.fullName || driver.name}
+                          <span className={`w-2 h-2 rounded-full ${isAvailable ? 'bg-green-500' : 'bg-zinc-500'}`} />
+                        </div>
+                        <div className="text-xs text-zinc-500 mt-0.5">
+                          {driver.phone} • {driver.assignedVehicleId?.numberPlate || 'No assigned vehicle'}
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => handleAssignDriverSubmit(driver._id)}
+                        className="bg-blue-600 hover:bg-blue-700 text-white font-medium cursor-pointer"
+                      >
+                        Assign
+                      </Button>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="flex justify-end mt-6 pt-4 border-t border-zinc-800">
+              <Button
+                variant="ghost"
+                className="hover:bg-zinc-800 text-zinc-400 hover:text-white"
+                onClick={() => setBookingToAssign(null)}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

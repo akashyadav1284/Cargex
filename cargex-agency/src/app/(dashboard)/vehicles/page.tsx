@@ -38,6 +38,15 @@ export default function VehiclesPage() {
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
+  // Additional action states
+  const [selectedVehicle, setSelectedVehicle] = useState<any | null>(null);
+  const [vehicleToUpdateDocs, setVehicleToUpdateDocs] = useState<any | null>(null);
+  const [vehicleToLogMaintenance, setVehicleToLogMaintenance] = useState<any | null>(null);
+
+  // Forms states
+  const [docsForm, setDocsForm] = useState({ rc: "", insurance: "", pollution: "", verifiedStatus: "pending" });
+  const [maintenanceForm, setMaintenanceForm] = useState({ lastServiceDate: "", nextServiceDate: "", notes: "", status: "active" });
+
   const fetchVehicles = async () => {
     try {
       const res = await api.get('/api/agency/vehicles');
@@ -46,6 +55,40 @@ export default function VehiclesPage() {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleUpdateDocsSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!vehicleToUpdateDocs) return;
+    setSubmitting(true);
+    try {
+      const res = await api.put(`/api/agency/vehicles/${vehicleToUpdateDocs._id}/documents`, docsForm);
+      if (res.status === 200 || res.data.success) {
+        setVehicleToUpdateDocs(null);
+        fetchVehicles();
+      }
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to update documents');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleLogMaintenanceSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!vehicleToLogMaintenance) return;
+    setSubmitting(true);
+    try {
+      const res = await api.post(`/api/agency/vehicles/${vehicleToLogMaintenance._id}/maintenance`, maintenanceForm);
+      if (res.status === 200 || res.data.success) {
+        setVehicleToLogMaintenance(null);
+        fetchVehicles();
+      }
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to log maintenance');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -191,10 +234,41 @@ export default function VehiclesPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="bg-zinc-900 border-zinc-800 text-zinc-200">
                           <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          <DropdownMenuItem className="hover:bg-zinc-800 focus:bg-zinc-800 cursor-pointer">View Details</DropdownMenuItem>
-                          <DropdownMenuItem className="hover:bg-zinc-800 focus:bg-zinc-800 cursor-pointer">Update Documents</DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={() => setSelectedVehicle(vehicle)}
+                            className="hover:bg-zinc-800 focus:bg-zinc-800 cursor-pointer"
+                          >
+                            View Details
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={() => {
+                              setVehicleToUpdateDocs(vehicle);
+                              setDocsForm({
+                                rc: vehicle.documents?.rc || "",
+                                insurance: vehicle.documents?.insurance || "",
+                                pollution: vehicle.documents?.pollution || "",
+                                verifiedStatus: vehicle.docsStatus || vehicle.documents?.verifiedStatus || "pending"
+                              });
+                            }}
+                            className="hover:bg-zinc-800 focus:bg-zinc-800 cursor-pointer"
+                          >
+                            Update Documents
+                          </DropdownMenuItem>
                           <DropdownMenuSeparator className="bg-zinc-800" />
-                          <DropdownMenuItem className="hover:bg-zinc-800 focus:bg-zinc-800 cursor-pointer">Log Maintenance</DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={() => {
+                              setVehicleToLogMaintenance(vehicle);
+                              setMaintenanceForm({
+                                lastServiceDate: vehicle.maintenance?.lastServiceDate ? new Date(vehicle.maintenance.lastServiceDate).toISOString().split('T')[0] : "",
+                                nextServiceDate: vehicle.maintenance?.nextServiceDate ? new Date(vehicle.maintenance.nextServiceDate).toISOString().split('T')[0] : "",
+                                notes: vehicle.maintenance?.notes || "",
+                                status: vehicle.status || "active"
+                              });
+                            }}
+                            className="hover:bg-zinc-800 focus:bg-zinc-800 cursor-pointer"
+                          >
+                            Log Maintenance
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -205,9 +279,7 @@ export default function VehiclesPage() {
           </div>
         </CardContent>
       </Card>
-    </div>
-
-      {/* Add Vehicle Modal */}
+    </div>      {/* Add Vehicle Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-250">
           <div className="bg-zinc-950 border border-zinc-800 rounded-2xl w-full max-w-md shadow-2xl p-6 text-white animate-in zoom-in-95 duration-200">
@@ -304,6 +376,275 @@ export default function VehiclesPage() {
                   className="bg-orange-600 hover:bg-orange-700 text-white font-bold"
                 >
                   {submitting ? "Adding..." : "Add Vehicle"}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* View Vehicle Details Modal */}
+      {selectedVehicle && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-zinc-950 border border-zinc-800 rounded-2xl w-full max-w-lg shadow-2xl p-6 text-white max-h-[90vh] overflow-y-auto animate-in zoom-in-95 duration-150">
+            <div className="flex justify-between items-start mb-6">
+              <div>
+                <h2 className="text-xl font-bold flex items-center gap-2">
+                  <Truck className="w-5 h-5 text-orange-500" />
+                  {selectedVehicle.numberPlate}
+                </h2>
+                <p className="text-xs text-zinc-500 font-mono mt-1">ID: {selectedVehicle._id}</p>
+              </div>
+              <span className={`text-xs px-2.5 py-1 rounded-full font-semibold capitalize ${
+                selectedVehicle.status === "active" ? "bg-green-500/10 text-green-500" :
+                selectedVehicle.status === "maintenance" ? "bg-red-500/10 text-red-500" : "bg-yellow-500/10 text-yellow-500"
+              }`}>
+                {selectedVehicle.status}
+              </span>
+            </div>
+
+            <div className="space-y-4">
+              {/* Specs info */}
+              <div className="bg-zinc-900/50 p-4 rounded-xl border border-zinc-800/80 grid grid-cols-2 gap-4">
+                <div>
+                  <div className="text-xs text-zinc-500">Brand / Name</div>
+                  <div className="text-sm font-semibold">{selectedVehicle.name || "N/A"}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-zinc-500">Model Year</div>
+                  <div className="text-sm font-semibold">{selectedVehicle.model || "N/A"}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-zinc-500">Fuel Type</div>
+                  <div className="text-sm font-semibold capitalize">{selectedVehicle.fuelType || "N/A"}</div>
+                </div>
+                <div>
+                  <div className="text-xs text-zinc-500">Load Capacity</div>
+                  <div className="text-sm font-semibold">{selectedVehicle.typeId?.capacityKg ? `${selectedVehicle.typeId.capacityKg} kg` : `${selectedVehicle.capacity || 0} kg`}</div>
+                </div>
+              </div>
+
+              {/* Driver Association */}
+              <div className="bg-zinc-900/50 p-4 rounded-xl border border-zinc-800/80">
+                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Assigned Driver</h3>
+                {selectedVehicle.driverId ? (
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <div className="text-sm font-semibold">{selectedVehicle.driverId.fullName || selectedVehicle.driverId.name}</div>
+                      <div className="text-xs text-zinc-400">{selectedVehicle.driverId.phone}</div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-sm text-zinc-500 italic">No driver assigned to this vehicle. Assign a vehicle from the Drivers tab.</div>
+                )}
+              </div>
+
+              {/* Document details */}
+              <div className="bg-zinc-900/50 p-4 rounded-xl border border-zinc-800/80">
+                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Documents Verification</h3>
+                <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                  <div className="p-2.5 rounded bg-zinc-950/40 border border-zinc-800/50">
+                    <div className="text-zinc-500 mb-1">RC Book</div>
+                    <span className="font-semibold text-zinc-300">{selectedVehicle.documents?.rc ? 'Uploaded' : 'Missing'}</span>
+                  </div>
+                  <div className="p-2.5 rounded bg-zinc-950/40 border border-zinc-800/50">
+                    <div className="text-zinc-500 mb-1">Insurance</div>
+                    <span className="font-semibold text-zinc-300">{selectedVehicle.documents?.insurance ? 'Uploaded' : 'Missing'}</span>
+                  </div>
+                  <div className="p-2.5 rounded bg-zinc-950/40 border border-zinc-800/50">
+                    <div className="text-zinc-500 mb-1">Pollution</div>
+                    <span className="font-semibold text-zinc-300">{selectedVehicle.documents?.pollution ? 'Uploaded' : 'Missing'}</span>
+                  </div>
+                </div>
+                <div className="mt-3 flex items-center gap-2 text-sm">
+                  <span className="text-xs text-zinc-500 font-medium">VERIFICATION STATUS:</span>
+                  <span className={`text-xs font-bold uppercase ${
+                    (selectedVehicle.docsStatus || selectedVehicle.documents?.verifiedStatus) === "verified" ? "text-green-500" :
+                    (selectedVehicle.docsStatus || selectedVehicle.documents?.verifiedStatus) === "rejected" ? "text-red-500" : "text-yellow-500"
+                  }`}>
+                    {selectedVehicle.docsStatus || selectedVehicle.documents?.verifiedStatus || 'Pending'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Maintenance Log */}
+              <div className="bg-zinc-900/50 p-4 rounded-xl border border-zinc-800/80">
+                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2">Maintenance History</h3>
+                <div className="grid grid-cols-2 gap-4 text-xs text-zinc-300">
+                  <div>
+                    <span className="text-zinc-500">Last Service Date:</span>
+                    <div className="font-semibold mt-0.5">
+                      {selectedVehicle.maintenance?.lastServiceDate ? new Date(selectedVehicle.maintenance.lastServiceDate).toLocaleDateString() : 'N/A'}
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-zinc-500">Next Service Due:</span>
+                    <div className="font-semibold mt-0.5">
+                      {selectedVehicle.maintenance?.nextServiceDate ? new Date(selectedVehicle.maintenance.nextServiceDate).toLocaleDateString() : 'N/A'}
+                    </div>
+                  </div>
+                </div>
+                {selectedVehicle.maintenance?.notes && (
+                  <div className="mt-3 bg-zinc-950/40 p-2.5 rounded border border-zinc-800/50 text-xs text-zinc-400">
+                    <span className="font-semibold text-zinc-500 block mb-0.5">Maintenance Notes:</span>
+                    {selectedVehicle.maintenance.notes}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-end mt-6 pt-4 border-t border-zinc-800">
+              <Button
+                variant="outline"
+                className="bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800 hover:text-white"
+                onClick={() => setSelectedVehicle(null)}
+              >
+                Close
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Update Documents Modal */}
+      {vehicleToUpdateDocs && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-250">
+          <div className="bg-zinc-950 border border-zinc-800 rounded-2xl w-full max-w-md shadow-2xl p-6 text-white animate-in zoom-in-95 duration-200">
+            <h2 className="text-xl font-bold mb-1">Update Vehicle Documents</h2>
+            <p className="text-sm text-zinc-400 mb-4">Provide document details for vehicle {vehicleToUpdateDocs.numberPlate}</p>
+
+            <form onSubmit={handleUpdateDocsSubmit} className="space-y-4">
+              <div>
+                <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider block mb-1">Registration Certificate (RC) Link/No.</label>
+                <Input
+                  type="text"
+                  placeholder="RC Book reference"
+                  className="bg-zinc-900 border-zinc-800 focus-visible:ring-blue-500"
+                  value={docsForm.rc}
+                  onChange={(e) => setDocsForm({ ...docsForm, rc: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider block mb-1">Insurance Policy Link/No.</label>
+                <Input
+                  type="text"
+                  placeholder="Insurance reference"
+                  className="bg-zinc-900 border-zinc-800 focus-visible:ring-blue-500"
+                  value={docsForm.insurance}
+                  onChange={(e) => setDocsForm({ ...docsForm, insurance: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider block mb-1">Pollution Certificate Link/No.</label>
+                <Input
+                  type="text"
+                  placeholder="Pollution certificate reference"
+                  className="bg-zinc-900 border-zinc-800 focus-visible:ring-blue-500"
+                  value={docsForm.pollution}
+                  onChange={(e) => setDocsForm({ ...docsForm, pollution: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider block mb-1">Verification Status</label>
+                <select
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+                  value={docsForm.verifiedStatus}
+                  onChange={(e) => setDocsForm({ ...docsForm, verifiedStatus: e.target.value })}
+                >
+                  <option value="pending">Pending</option>
+                  <option value="verified">Verified</option>
+                  <option value="rejected">Rejected</option>
+                  <option value="expired">Expired</option>
+                </select>
+              </div>
+
+              <div className="flex gap-3 justify-end pt-4 border-t border-zinc-800">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="hover:bg-zinc-800 text-zinc-400 hover:text-white"
+                  onClick={() => setVehicleToUpdateDocs(null)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={submitting}
+                  className="bg-orange-600 hover:bg-orange-700 text-white font-bold"
+                >
+                  {submitting ? "Updating..." : "Update Documents"}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Log Maintenance Modal */}
+      {vehicleToLogMaintenance && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-250">
+          <div className="bg-zinc-950 border border-zinc-800 rounded-2xl w-full max-w-md shadow-2xl p-6 text-white animate-in zoom-in-95 duration-200">
+            <h2 className="text-xl font-bold mb-1">Log Vehicle Maintenance</h2>
+            <p className="text-sm text-zinc-400 mb-4">Record service dates and logs for {vehicleToLogMaintenance.numberPlate}</p>
+
+            <form onSubmit={handleLogMaintenanceSubmit} className="space-y-4">
+              <div>
+                <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider block mb-1">Last Service Date</label>
+                <Input
+                  type="date"
+                  required
+                  className="bg-zinc-900 border-zinc-800 focus-visible:ring-blue-500 text-white fill-white [color-scheme:dark]"
+                  value={maintenanceForm.lastServiceDate}
+                  onChange={(e) => setMaintenanceForm({ ...maintenanceForm, lastServiceDate: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider block mb-1">Next Service Due Date</label>
+                <Input
+                  type="date"
+                  required
+                  className="bg-zinc-900 border-zinc-800 focus-visible:ring-blue-500 text-white fill-white [color-scheme:dark]"
+                  value={maintenanceForm.nextServiceDate}
+                  onChange={(e) => setMaintenanceForm({ ...maintenanceForm, nextServiceDate: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider block mb-1">Maintenance / Service Notes</label>
+                <textarea
+                  placeholder="Describe service details (e.g. engine oil change, tire rotation)..."
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-3 text-sm text-white focus:outline-none focus:border-blue-500 min-h-[80px]"
+                  value={maintenanceForm.notes}
+                  onChange={(e) => setMaintenanceForm({ ...maintenanceForm, notes: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider block mb-1">Vehicle Fleet Status</label>
+                <select
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+                  value={maintenanceForm.status}
+                  onChange={(e) => setMaintenanceForm({ ...maintenanceForm, status: e.target.value })}
+                >
+                  <option value="active">Active (Available)</option>
+                  <option value="idle">Idle (No Driver)</option>
+                  <option value="maintenance">Maintenance (Out of Service)</option>
+                </select>
+              </div>
+
+              <div className="flex gap-3 justify-end pt-4 border-t border-zinc-800">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="hover:bg-zinc-800 text-zinc-400 hover:text-white"
+                  onClick={() => setVehicleToLogMaintenance(null)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={submitting}
+                  className="bg-orange-600 hover:bg-orange-700 text-white font-bold"
+                >
+                  {submitting ? "Logging..." : "Log Maintenance"}
                 </Button>
               </div>
             </form>

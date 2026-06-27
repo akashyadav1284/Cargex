@@ -14,6 +14,7 @@ const vehicleSchema = new mongoose.Schema({
   image: { type: String },
 
   status: { type: String, enum: ['active', 'idle', 'maintenance', 'offline'], default: 'offline' },
+  docsStatus: { type: String, enum: ['pending', 'verified', 'rejected', 'expired'], default: 'pending' },
   
   documents: {
     rc: { type: String, default: '' },
