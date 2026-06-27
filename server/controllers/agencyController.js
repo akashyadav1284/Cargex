@@ -134,16 +134,40 @@ exports.createDriver = async (req, res) => {
     const { fullName, phone, email, password } = req.body;
     const agencyId = req.user._id;
 
-    if (!fullName || !phone || !password) {
-      return res.status(400).json({ success: false, message: 'Please provide full name, phone, and password' });
+    if (!fullName || !phone) {
+      return res.status(400).json({ success: false, message: 'Please provide full name and phone number' });
     }
 
     // Check if driver exists
-    const driverExists = await Driver.findOne({ phone });
-    if (driverExists) {
-      return res.status(400).json({ success: false, message: 'Driver with this phone number already exists' });
+    let driver = await Driver.findOne({ phone });
+    if (driver) {
+      // If driver already belongs to this agency
+      if (driver.agencyId && driver.agencyId.toString() === agencyId.toString()) {
+        return res.status(400).json({ success: false, message: 'Driver is already registered under your agency.' });
+      }
+      
+      // If driver belongs to another agency
+      if (driver.agencyId) {
+        return res.status(400).json({ success: false, message: 'Driver is already registered under another agency.' });
+      }
+
+      // If driver is independent (no agencyId), assign them to this agency!
+      driver.agencyId = agencyId;
+      driver.status = 'approved';
+      driver.isApproved = true;
+      driver.isVerified = true;
+      if (fullName) driver.fullName = fullName;
+      if (email) driver.email = email;
+      // Update password only if provided
+      if (password) {
+        driver.password = password;
+      }
+      
+      await driver.save();
+      return res.status(200).json({ success: true, data: driver, message: 'Driver associated with your agency successfully' });
     }
 
+    // If driver does not exist, check email first if provided
     if (email) {
       const emailExists = await Driver.findOne({ email });
       if (emailExists) {
@@ -151,7 +175,11 @@ exports.createDriver = async (req, res) => {
       }
     }
 
-    const driver = await Driver.create({
+    if (!password) {
+      return res.status(400).json({ success: false, message: 'Please provide a password for new driver registration' });
+    }
+
+    driver = await Driver.create({
       fullName,
       phone,
       email,
