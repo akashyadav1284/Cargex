@@ -30,33 +30,77 @@ export default function VehiclesPage() {
   const [vehicles, setVehicles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Modal states
+  const [showModal, setShowModal] = useState(false);
+  const [formData, setFormData] = useState({ numberPlate: "", name: "", model: "", typeId: "", driverId: "" });
+  const [vehicleTypes, setVehicleTypes] = useState<any[]>([]);
+  const [drivers, setDrivers] = useState<any[]>([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+
+  const fetchVehicles = async () => {
+    try {
+      const res = await api.get('/api/agency/vehicles');
+      setVehicles(res.data.data || res.data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchVehicles = async () => {
-      try {
-        const res = await api.get('/api/agency/vehicles');
-        setVehicles(res.data.data || res.data);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchVehicles();
   }, [api]);
 
+  const handleOpenModal = async () => {
+    setShowModal(true);
+    setErrorMsg("");
+    try {
+      const [typesRes, driversRes] = await Promise.all([
+        api.get('/api/agency/vehicle-types'),
+        api.get('/api/agency/drivers')
+      ]);
+      setVehicleTypes(typesRes.data.data || typesRes.data);
+      
+      const allDrivers = driversRes.data.data || driversRes.data;
+      const unassigned = allDrivers.filter((d: any) => !d.assignedVehicleId);
+      setDrivers(unassigned);
+    } catch (err) {
+      console.error("Failed to load form lookup data", err);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setErrorMsg("");
+    try {
+      await api.post('/api/agency/vehicles', formData);
+      setShowModal(false);
+      setFormData({ numberPlate: "", name: "", model: "", typeId: "", driverId: "" });
+      fetchVehicles();
+    } catch (err: any) {
+      setErrorMsg(err.response?.data?.message || "Failed to add vehicle.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const filteredVehicles = vehicles.filter(v => 
     v.numberPlate.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    (v.vehicleType && v.vehicleType.name.toLowerCase().includes(searchTerm.toLowerCase()))
+    (v.typeId && v.typeId.name.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   return (
+    <>
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-white">Vehicle Fleet Management</h1>
           <p className="text-zinc-400 mt-1">Track and manage your trucks, documents, and maintenance.</p>
         </div>
-        <Button className="bg-orange-600 hover:bg-orange-700 text-white gap-2">
+        <Button onClick={handleOpenModal} className="bg-orange-600 hover:bg-orange-700 text-white gap-2 cursor-pointer">
           <Plus className="w-4 h-4" /> Add New Vehicle
         </Button>
       </div>
@@ -111,12 +155,12 @@ export default function VehiclesPage() {
                         <Truck className="w-4 h-4 text-zinc-500" />
                         {vehicle.numberPlate}
                       </div>
-                      <div className="text-xs text-zinc-500 mt-1">{vehicle.vehicleType?.name} • {vehicle._id.slice(-6)}</div>
+                      <div className="text-xs text-zinc-500 mt-1">{vehicle.typeId?.name || 'N/A'} • {vehicle._id.slice(-6)}</div>
                     </TableCell>
-                    <TableCell className="text-zinc-300">{vehicle.vehicleType?.capacity || '-'}</TableCell>
+                    <TableCell className="text-zinc-300">{vehicle.typeId?.capacityKg ? `${vehicle.typeId.capacityKg} kg` : '-'}</TableCell>
                     <TableCell className="text-zinc-300">
-                      {vehicle.assignedDriverId ? (
-                        vehicle.assignedDriverId.name
+                      {vehicle.driverId ? (
+                        vehicle.driverId.fullName || vehicle.driverId.name
                       ) : (
                         <span className="text-yellow-500 text-xs font-medium bg-yellow-500/10 px-2 py-1 rounded-full">No Driver</span>
                       )}
@@ -164,5 +208,110 @@ export default function VehiclesPage() {
         </CardContent>
       </Card>
     </div>
+
+      {/* Add Vehicle Modal */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-250">
+          <div className="bg-zinc-950 border border-zinc-800 rounded-2xl w-full max-w-md shadow-2xl p-6 text-white animate-in zoom-in-95 duration-200">
+            <h2 className="text-xl font-bold mb-1">Add New Vehicle</h2>
+            <p className="text-sm text-zinc-400 mb-4">Register a new vehicle under your fleet.</p>
+            
+            {errorMsg && (
+              <div className="bg-red-500/10 border border-red-500/20 text-red-500 p-3 rounded-xl text-sm mb-4 font-semibold">
+                {errorMsg}
+              </div>
+            )}
+            
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider block mb-1">Number Plate</label>
+                <Input
+                  type="text"
+                  required
+                  placeholder="e.g. MH 12 AB 1234"
+                  className="bg-zinc-900 border-zinc-800 focus-visible:ring-blue-500 uppercase"
+                  value={formData.numberPlate}
+                  onChange={(e) => setFormData({ ...formData, numberPlate: e.target.value })}
+                />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider block mb-1">Brand/Name</label>
+                  <Input
+                    type="text"
+                    placeholder="e.g. Tata Ace"
+                    className="bg-zinc-900 border-zinc-800 focus-visible:ring-blue-500"
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider block mb-1">Model Year</label>
+                  <Input
+                    type="text"
+                    placeholder="e.g. 2024"
+                    className="bg-zinc-900 border-zinc-800 focus-visible:ring-blue-500"
+                    value={formData.model}
+                    onChange={(e) => setFormData({ ...formData, model: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider block mb-1">Vehicle Type (Category)</label>
+                <select
+                  required
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+                  value={formData.typeId}
+                  onChange={(e) => setFormData({ ...formData, typeId: e.target.value })}
+                >
+                  <option value="">-- Select Type --</option>
+                  {vehicleTypes.map((type) => (
+                    <option key={type._id} value={type._id}>
+                      {type.name} ({type.capacityKg} kg)
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider block mb-1">Assign Driver (Optional)</label>
+                <select
+                  className="w-full bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500"
+                  value={formData.driverId}
+                  onChange={(e) => setFormData({ ...formData, driverId: e.target.value })}
+                >
+                  <option value="">-- Leave Unassigned --</option>
+                  {drivers.map((driver) => (
+                    <option key={driver._id} value={driver._id}>
+                      {driver.fullName || driver.name} ({driver.phone})
+                    </option>
+                  ))}
+                </select>
+              </div>
+              
+              <div className="flex gap-3 justify-end pt-4 border-t border-zinc-800">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="hover:bg-zinc-800 text-zinc-400 hover:text-white"
+                  onClick={() => setShowModal(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={submitting}
+                  className="bg-orange-600 hover:bg-orange-700 text-white font-bold"
+                >
+                  {submitting ? "Adding..." : "Add Vehicle"}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

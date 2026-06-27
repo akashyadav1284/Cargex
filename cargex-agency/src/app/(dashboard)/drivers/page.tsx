@@ -30,33 +30,57 @@ export default function DriversPage() {
   const [drivers, setDrivers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Modal states
+  const [showModal, setShowModal] = useState(false);
+  const [formData, setFormData] = useState({ fullName: "", phone: "", email: "", password: "" });
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+
+  const fetchDrivers = async () => {
+    try {
+      const res = await api.get('/api/agency/drivers');
+      setDrivers(res.data.data || res.data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchDrivers = async () => {
-      try {
-        const res = await api.get('/api/agency/drivers');
-        setDrivers(res.data.data || res.data);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchDrivers();
   }, [api]);
 
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setErrorMsg("");
+    try {
+      await api.post('/api/agency/drivers', formData);
+      setShowModal(false);
+      setFormData({ fullName: "", phone: "", email: "", password: "" });
+      fetchDrivers();
+    } catch (err: any) {
+      setErrorMsg(err.response?.data?.message || "Failed to add driver.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const filteredDrivers = drivers.filter(driver => 
-    driver.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    (driver.fullName || driver.name || "").toLowerCase().includes(searchTerm.toLowerCase()) || 
     (driver.phone && driver.phone.includes(searchTerm))
   );
 
   return (
+    <>
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-white">Drivers Management</h1>
           <p className="text-zinc-400 mt-1">Manage your agency fleet drivers and their profiles.</p>
         </div>
-        <Button className="bg-blue-600 hover:bg-blue-700 text-white gap-2">
+        <Button onClick={() => setShowModal(true)} className="bg-blue-600 hover:bg-blue-700 text-white gap-2 cursor-pointer">
           <Plus className="w-4 h-4" /> Add New Driver
         </Button>
       </div>
@@ -107,7 +131,7 @@ export default function DriversPage() {
                 ) : filteredDrivers.map((driver) => (
                   <TableRow key={driver._id} className="border-zinc-800 hover:bg-zinc-900/50">
                     <TableCell>
-                      <div className="font-medium text-white">{driver.name}</div>
+                      <div className="font-medium text-white">{driver.fullName || driver.name}</div>
                       <div className="text-xs text-zinc-500">{driver.phone || 'No phone'} • {driver._id.slice(-6)}</div>
                     </TableCell>
                     <TableCell className="text-zinc-300">
@@ -163,5 +187,86 @@ export default function DriversPage() {
         </CardContent>
       </Card>
     </div>
+
+      {/* Add Driver Modal */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-250">
+          <div className="bg-zinc-950 border border-zinc-800 rounded-2xl w-full max-w-md shadow-2xl p-6 text-white animate-in zoom-in-95 duration-200">
+            <h2 className="text-xl font-bold mb-1">Add New Driver</h2>
+            <p className="text-sm text-zinc-400 mb-4">Register a new driver under your agency.</p>
+            
+            {errorMsg && (
+              <div className="bg-red-500/10 border border-red-500/20 text-red-500 p-3 rounded-xl text-sm mb-4 font-semibold">
+                {errorMsg}
+              </div>
+            )}
+            
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider block mb-1">Full Name</label>
+                <Input
+                  type="text"
+                  required
+                  placeholder="e.g. John Doe"
+                  className="bg-zinc-900 border-zinc-800 focus-visible:ring-blue-500"
+                  value={formData.fullName}
+                  onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider block mb-1">Phone Number</label>
+                <Input
+                  type="tel"
+                  required
+                  placeholder="e.g. +91 9988776655"
+                  className="bg-zinc-900 border-zinc-800 focus-visible:ring-blue-500"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider block mb-1">Email Address</label>
+                <Input
+                  type="email"
+                  placeholder="e.g. john@example.com (optional)"
+                  className="bg-zinc-900 border-zinc-800 focus-visible:ring-blue-500"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider block mb-1">Login Password</label>
+                <Input
+                  type="password"
+                  required
+                  placeholder="Minimum 6 characters"
+                  className="bg-zinc-900 border-zinc-800 focus-visible:ring-blue-500"
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                />
+              </div>
+              
+              <div className="flex gap-3 justify-end pt-4 border-t border-zinc-800">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="hover:bg-zinc-800 text-zinc-400 hover:text-white"
+                  onClick={() => setShowModal(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={submitting}
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold"
+                >
+                  {submitting ? "Adding..." : "Add Driver"}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
