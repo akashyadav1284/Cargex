@@ -162,11 +162,9 @@ export default function DriversPage() {
                     </TableCell>
                     <TableCell>
                       <DropdownMenu>
-                        <DropdownMenuTrigger>
-                          <Button variant="ghost" className="h-8 w-8 p-0 hover:bg-zinc-800 text-zinc-400 hover:text-white">
-                            <span className="sr-only">Open menu</span>
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
+                        <DropdownMenuTrigger className="h-8 w-8 p-0 hover:bg-zinc-800 text-zinc-400 hover:text-white flex items-center justify-center rounded-md transition-colors outline-none cursor-pointer">
+                          <span className="sr-only">Open menu</span>
+                          <MoreHorizontal className="h-4 w-4" />
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="bg-zinc-900 border-zinc-800 text-zinc-200">
                           <DropdownMenuLabel>Actions</DropdownMenuLabel>
