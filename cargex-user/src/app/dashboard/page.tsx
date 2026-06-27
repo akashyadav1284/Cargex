@@ -20,6 +20,46 @@ const LeafletMap = dynamic(() => import('@/components/Map'), {
 
 const DEFAULT_CENTER = { lat: 28.6139, lng: 77.2090 };
 
+const CATEGORY_ITEMS: Record<string, string[]> = {
+  "Construction Material": ["Cement", "Bricks", "Sand", "Gravel", "Steel Rods", "Tiles", "Marble", "Granite", "Concrete Blocks", "Pipes"],
+  "Business / Commercial": ["Office Furniture", "Office Equipment", "Retail Goods", "Electronics", "Industrial Supplies", "Packaging Materials"],
+  "Household Goods": ["Sofa", "Bed", "Mattress", "Refrigerator", "Washing Machine", "TV", "Dining Table", "Boxes", "Kitchen Items"],
+  "Personal Delivery": ["Documents", "Parcel", "Gift", "Small Package", "Electronics", "Bags"],
+  "Heavy Equipment Transport": ["JCB", "Excavator", "Bulldozer", "Crane", "Tractor", "Road Roller", "Generator"],
+  "Vehicle Transport": ["Bike", "Scooter", "Car", "SUV", "Pickup", "Tractor"],
+  "Food & Agriculture": ["Fruits", "Vegetables", "Milk", "Grain", "Fertilizer", "Animal Feed", "Seeds"]
+};
+
+const VEHICLE_METADATA: Record<string, { capacity: string, dimensions: string, cargo: string, emoji: string }> = {
+  "Tata Ace": { capacity: "750 kg", dimensions: "7.2 ft x 4.8 ft x 4.9 ft", cargo: "Household shifting, boxes, retail goods", emoji: "🚚" },
+  "Tata Ace / Chota Hathi": { capacity: "750 kg", dimensions: "7.2 ft x 4.8 ft x 4.9 ft", cargo: "Household shifting, boxes, retail goods", emoji: "🚚" },
+  "Ashok Leyland Dost": { capacity: "1.2 ton", dimensions: "8.2 ft x 5.3 ft x 5.5 ft", cargo: "Commercial bulk, construction materials", emoji: "🚚" },
+  "Pickup Truck": { capacity: "1.0 ton", dimensions: "8.0 ft x 5.0 ft x 5.0 ft", cargo: "Furniture, wholesale delivery, agricultural bags", emoji: "🛻" },
+  "Pickup": { capacity: "1.0 ton", dimensions: "8.0 ft x 5.0 ft x 5.0 ft", cargo: "Furniture, wholesale delivery, agricultural bags", emoji: "🛻" },
+  "Mini Truck (14 ft)": { capacity: "2.5 ton", dimensions: "14 ft x 6 ft x 6.5 ft", cargo: "B2B deliveries, full 1-2 BHK house shifting", emoji: "🚛" },
+  "14 ft Truck": { capacity: "2.5 ton", dimensions: "14 ft x 6 ft x 6.5 ft", cargo: "B2B deliveries, full 1-2 BHK house shifting", emoji: "🚛" },
+  "Medium Truck (17 ft)": { capacity: "4.0 ton", dimensions: "17 ft x 7 ft x 7.5 ft", cargo: "Large machinery, factory goods, 3BHK relocation", emoji: "🚛" },
+  "17 ft Truck": { capacity: "4.0 ton", dimensions: "17 ft x 7 ft x 7.5 ft", cargo: "Large machinery, factory goods, 3BHK relocation", emoji: "🚛" },
+  "Container Truck": { capacity: "5.0 ton", dimensions: "20 ft x 8 ft x 8 ft", cargo: "FMCG products, electronics, B2B wholesale", emoji: "📦" },
+  "Tipper": { capacity: "10 ton", dimensions: "Open Tipper Bed", cargo: "Loose gravel, sand, bricks, aggregate", emoji: "🚜" },
+  "Tipper Truck": { capacity: "10 ton", dimensions: "Open Tipper Bed", cargo: "Loose gravel, sand, bricks, aggregate", emoji: "🚜" },
+  "Trailer": { capacity: "25 ton", dimensions: "40 ft Flatbed", cargo: "Heavy machinery, cranes, JCBs, steel columns", emoji: "🚛" },
+  "Low Bed Trailer": { capacity: "30 ton", dimensions: "Modular lowbed", cargo: "Heavy plant machinery, tractors, excavators", emoji: "🚛" },
+  "Bike": { capacity: "20 kg", dimensions: "Courier Backpack", cargo: "Documents, parcels, gifts, electronics", emoji: "🛵" },
+  "Bike Courier": { capacity: "20 kg", dimensions: "Courier Backpack", cargo: "Documents, parcels, gifts, electronics", emoji: "🛵" },
+  "Bike Courier (small items)": { capacity: "20 kg", dimensions: "Courier Backpack", cargo: "Documents, parcels, gifts, electronics", emoji: "🛵" },
+  "Scooter": { capacity: "15 kg", dimensions: "Courier Bag", cargo: "Small parcels, food items, retail gifts", emoji: "🛵" },
+  "Auto Cargo": { capacity: "500 kg", dimensions: "5 ft x 4 ft x 4 ft", cargo: "Luggage, small crates, business samples", emoji: "🛺" },
+  "Auto Rickshaw Cargo": { capacity: "500 kg", dimensions: "5 ft x 4 ft x 4 ft", cargo: "Luggage, small crates, business samples", emoji: "🛺" },
+  "Car Carrier": { capacity: "5.0 ton", dimensions: "Single car ramp", cargo: "Cars, SUVs, vehicle towing", emoji: "🚚" },
+  "Car Carrier Truck": { capacity: "5.0 ton", dimensions: "Single car ramp", cargo: "Cars, SUVs, vehicle towing", emoji: "🚚" },
+  "Bike Carrier": { capacity: "1.0 ton", dimensions: "2-wheeler deck", cargo: "Motorcycles, scooters", emoji: "🚚" },
+  "Tow Truck": { capacity: "3.0 ton", dimensions: "Flatbed towing bed", cargo: "Damaged vehicles, recovery", emoji: "🚚" },
+  "Flatbed Tow Truck": { capacity: "3.0 ton", dimensions: "Flatbed towing bed", cargo: "Damaged vehicles, recovery", emoji: "🚚" },
+  "Reefer Truck": { capacity: "3.5 ton", dimensions: "Chilled container", cargo: "Dairy, frozen meat, vaccines, pharma", emoji: "❄️" },
+  "Tractor Trolley": { capacity: "3.0 ton", dimensions: "Trolley trailer", cargo: "Agricultural grain bags, animal feed, seeds", emoji: "🚜" }
+};
+
 export default function UserDashboard() {
   const router = useRouter();
   const [step, setStep] = useState(1);
@@ -31,8 +71,17 @@ export default function UserDashboard() {
   const [recommendations, setRecommendations] = useState<any[]>([]);
 
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [selectedCargo, setSelectedCargo] = useState<any | null>(null);
   const [selectedVehicle, setSelectedVehicle] = useState<any | null>(null);
+
+  // Landmarks and Contacts state
+  const [pickupLandmark, setPickupLandmark] = useState('');
+  const [pickupContactName, setPickupContactName] = useState('');
+  const [pickupContactPhone, setPickupContactPhone] = useState('');
+  const [dropoffLandmark, setDropoffLandmark] = useState('');
+  const [dropoffContactName, setDropoffContactName] = useState('');
+  const [dropoffContactPhone, setDropoffContactPhone] = useState('');
 
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('Cash');
@@ -217,6 +266,7 @@ export default function UserDashboard() {
     if (cat.includes('Food')) return '🌾';
     if (cat.includes('Construction')) return '🏗️';
     if (cat.includes('Heavy') || cat.includes('Industrial')) return '🚜';
+    if (cat.includes('Vehicle')) return '🚗';
     return '📦';
   };
 
@@ -244,7 +294,16 @@ export default function UserDashboard() {
 
   // Fetch categories
   useEffect(() => {
-    fetch(`${API_URL}/api/universal/categories`).then(r => r.json()).then(j => { if (j.success) setCategories(j.data); }).catch(() => {});
+    fetch(`${API_URL}/api/universal/categories`)
+      .then(r => r.json())
+      .then(j => { 
+        if (j.success) {
+          // Filter out Waste/Disposal from displaying
+          const filtered = j.data.filter((cat: string) => !cat.toLowerCase().includes('waste') && !cat.toLowerCase().includes('disposal'));
+          setCategories(filtered); 
+        } 
+      })
+      .catch(() => {});
   }, []);
 
   const geocodeAddress = async (address: string, fallbackLat: number, fallbackLng: number) => {
@@ -268,40 +327,129 @@ export default function UserDashboard() {
     };
   };
 
+  const handleGetCurrentLocation = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(async (position) => {
+        const { latitude, longitude } = position.coords;
+        setPickupLocation({ lat: latitude, lng: longitude, address: "Fetching address..." });
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+          const data = await res.json();
+          if (data && data.display_name) {
+            setPickupLocation({ lat: latitude, lng: longitude, address: data.display_name });
+            setPickupAddress(data.display_name);
+          } else {
+            setPickupLocation({ lat: latitude, lng: longitude, address: `Coordinates: ${latitude}, ${longitude}` });
+            setPickupAddress(`Coordinates: ${latitude}, ${longitude}`);
+          }
+        } catch {
+          setPickupLocation({ lat: latitude, lng: longitude, address: `Coordinates: ${latitude}, ${longitude}` });
+          setPickupAddress(`Coordinates: ${latitude}, ${longitude}`);
+        }
+      }, () => {
+        alert("Unable to retrieve your location.");
+      });
+    } else {
+      alert("Geolocation is not supported by your browser.");
+    }
+  };
+
   const handleCategorySelect = useCallback(async (catName: string) => {
-    setSelectedCategory(catName); setSelectedCargo(null); setSelectedVehicle(null); setStep(2); setIsLoading(true);
-    try { const res = await fetch(`${API_URL}/api/universal/cargo/${catName}`); const j = await res.json(); if (j.success) setCargoTypes(j.data); } catch {} finally { setIsLoading(false); }
+    setSelectedCategory(catName); 
+    setSelectedItems([]);
+    setSelectedCargo(null); 
+    setSelectedVehicle(null); 
+    setStep(2); 
+    setIsLoading(true);
+    try { 
+      const res = await fetch(`${API_URL}/api/universal/cargo/${catName}`); 
+      const j = await res.json(); 
+      if (j.success) setCargoTypes(j.data); 
+    } catch {} finally { setIsLoading(false); }
   }, []);
 
-  const handleCargoSelect = useCallback(async (cargo: any) => {
-    let currentPickup = pickupLocation;
-    let currentDropoff = dropoffLocation;
-
-    if (!currentPickup && pickupAddress) {
-      setIsLoading(true);
-      currentPickup = await geocodeAddress(pickupAddress, 19.1136, 72.8297);
-      setPickupLocation(currentPickup);
-      setIsLoading(false);
+  const handleItemsContinue = async () => {
+    if (selectedItems.length === 0) {
+      alert("Please select at least one item.");
+      return;
     }
+    setIsLoading(true);
+    setStep(3);
 
-    if (!currentDropoff && dropoffAddress) {
-      setIsLoading(true);
-      currentDropoff = await geocodeAddress(dropoffAddress, 19.0616, 72.8658);
-      setDropoffLocation(currentDropoff);
-      setIsLoading(false);
+    try {
+      // Find a matching subcategory in database
+      let matchedCargo = cargoTypes[0];
+      for (const item of selectedItems) {
+        const found = cargoTypes.find(c => c.name.toLowerCase().includes(item.toLowerCase()) || item.toLowerCase().includes(c.name.toLowerCase()));
+        if (found) {
+          matchedCargo = found;
+          break;
+        }
+      }
+      setSelectedCargo(matchedCargo);
+
+      // Recommendations call with 15km default distance
+      const res = await fetch(`${API_URL}/api/universal/recommend`, { 
+        method: 'POST', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ cargoTypeId: matchedCargo._id, distanceKm: 15, weightKg: 500 }) 
+      });
+      const j = await res.json(); 
+      if (j.success) setRecommendations(j.data); 
+      else setRecommendations([]);
+    } catch { 
+      setRecommendations([]); 
+    } finally { 
+      setIsLoading(false); 
     }
+  };
 
-    if (!currentPickup || !currentDropoff) {
-      alert("Please enter both pickup and dropoff locations.");
+  const handleVehicleSelect = useCallback((v: any) => { 
+    setSelectedVehicle(v); 
+    setStep(4); 
+  }, []);
+
+  const handleLocationContinue = async () => {
+    if (!pickupAddress || !dropoffAddress || !pickupContactName || !pickupContactPhone || !dropoffContactName || !dropoffContactPhone) {
+      alert("Please enter all details including pickup & delivery contact information.");
       return;
     }
 
-    setSelectedCargo(cargo); setSelectedVehicle(null); setStep(3); setIsLoading(true);
+    setIsLoading(true);
+
+    let currentPickup = pickupLocation;
+    if (!currentPickup) {
+      currentPickup = await geocodeAddress(pickupAddress, 28.6139, 77.2090);
+      setPickupLocation(currentPickup);
+    }
+
+    let currentDropoff = dropoffLocation;
+    if (!currentDropoff) {
+      currentDropoff = await geocodeAddress(dropoffAddress, 28.7041, 77.1025);
+      setDropoffLocation(currentDropoff);
+    }
+
+    if (!currentPickup || !currentDropoff) {
+      alert("Could not geocode locations. Please verify inputs.");
+      setIsLoading(false);
+      return;
+    }
+
+    // Calculate actual route distance & duration via OSRM
     try {
-      let distance = tripDistance;
-      if (!distance) {
-        // Calculate haversine distance
-        const R = 6371; // km
+      let distance = 15;
+      try {
+        const url = `https://router.project-osrm.org/route/v1/driving/${currentPickup.lng},${currentPickup.lat};${currentDropoff.lng},${currentDropoff.lat}?overview=full`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (data.routes && data.routes.length > 0) {
+          distance = data.routes[0].distance / 1000;
+          setTripDistance(distance);
+          setTripDuration(Math.ceil(data.routes[0].duration / 60));
+        }
+      } catch {
+        // Haversine fallback
+        const R = 6371; 
         const dLat = (currentDropoff.lat - currentPickup.lat) * Math.PI / 180;
         const dLon = (currentDropoff.lng - currentPickup.lng) * Math.PI / 180;
         const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
@@ -313,36 +461,62 @@ export default function UserDashboard() {
         setTripDuration(Math.ceil(distance * 2));
       }
 
+      // Re-fetch recommendations based on calculated OSRM route distance
       const res = await fetch(`${API_URL}/api/universal/recommend`, { 
         method: 'POST', 
         headers: { 'Content-Type': 'application/json' }, 
-        body: JSON.stringify({ cargoTypeId: cargo._id, distanceKm: distance || 15, weightKg: 500 }) 
+        body: JSON.stringify({ cargoTypeId: selectedCargo._id, distanceKm: distance, weightKg: 500 }) 
       });
-      const j = await res.json(); if (j.success) setRecommendations(j.data); else setRecommendations([]);
-    } catch { setRecommendations([]); } finally { setIsLoading(false); }
-  }, [pickupLocation, dropoffLocation, pickupAddress, dropoffAddress, tripDistance]);
-
-  const handleVehicleSelect = useCallback((v: any) => { setSelectedVehicle(v); setStep(4); }, []);
+      const j = await res.json(); 
+      if (j.success && j.data.length > 0) {
+        const updatedVeh = j.data.find((v: any) => v.name === selectedVehicle.name);
+        if (updatedVeh) {
+          setSelectedVehicle(updatedVeh);
+        }
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+      setStep(5);
+    }
+  };
 
   const handleConfirmBooking = async () => {
     setIsBooking(true);
     try {
+      // Append landmarks and contact names/phones to the address string for display clarity
+      const pickupAddressWithDetails = `${pickupAddress} (Landmark: ${pickupLandmark || 'None'} | Contact: ${pickupContactName} - ${pickupContactPhone})`;
+      const dropAddressWithDetails = `${dropoffAddress} (Landmark: ${dropoffLandmark || 'None'} | Contact: ${dropoffContactName} - ${dropoffContactPhone})`;
+
       const res = await fetch(`${API_URL}/api/users/bookings`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          pickupLocation: { address: pickupLocation?.address || pickupAddress, latitude: pickupLocation?.lat || 28.6139, longitude: pickupLocation?.lng || 77.2090 },
-          dropLocation: { address: dropoffLocation?.address || dropoffAddress, latitude: dropoffLocation?.lat || 28.7041, longitude: dropoffLocation?.lng || 77.1025 },
-          distance: tripDistance || 15, duration: tripDuration || 35, vehicleType: selectedVehicle.name,
-          category: selectedCategory, subcategory: selectedCargo?.name,
+          pickupLocation: { 
+            address: pickupAddressWithDetails, 
+            latitude: pickupLocation?.lat || 28.6139, 
+            longitude: pickupLocation?.lng || 77.2090 
+          },
+          dropLocation: { 
+            address: dropAddressWithDetails, 
+            latitude: dropoffLocation?.lat || 28.7041, 
+            longitude: dropoffLocation?.lng || 77.1025 
+          },
+          distance: tripDistance || 15, 
+          duration: tripDuration || 35, 
+          vehicleType: selectedVehicle.name,
+          category: selectedCategory, 
+          subcategory: selectedItems.join(', '),
           loadType: selectedCargo?.name || 'small',
           paymentMethod,
         }),
       });
       if (res.ok) {
         const data = await res.json();
-        setBookingId(data._id); setBookingSuccess(true);
+        setBookingId(data._id); 
+        setBookingSuccess(true);
         if (socket) socket.emit('join_booking_room', data._id);
       } else {
         const err = await res.json();
@@ -353,7 +527,6 @@ export default function UserDashboard() {
   };
 
   const resetBooking = async () => {
-    // If there's an active booking, cancel it on the backend so drivers get notified
     if (bookingId) {
       try {
         await fetch(`${API_URL}/api/users/bookings/${bookingId}/cancel`, {
@@ -366,7 +539,26 @@ export default function UserDashboard() {
         console.error('Cancel API failed:', e);
       }
     }
-    setStep(1); setSelectedCategory(null); setSelectedCargo(null); setSelectedVehicle(null); setBookingSuccess(false); setBookingId(null); setPaymentMethod('Cash'); setRideStatus(null); setAssignedDriver(null);
+    setStep(1); 
+    setSelectedCategory(null); 
+    setSelectedItems([]);
+    setSelectedCargo(null); 
+    setSelectedVehicle(null); 
+    setPickupLandmark('');
+    setPickupContactName('');
+    setPickupContactPhone('');
+    setDropoffLandmark('');
+    setDropoffContactName('');
+    setDropoffContactPhone('');
+    setPickupAddress('');
+    setDropoffAddress('');
+    setPickupLocation(null);
+    setDropoffLocation(null);
+    setBookingSuccess(false); 
+    setBookingId(null); 
+    setPaymentMethod('Cash'); 
+    setRideStatus(null); 
+    setAssignedDriver(null);
   };
 
   const handleLogout = async () => { 
@@ -411,13 +603,21 @@ export default function UserDashboard() {
               <div className="flex items-center gap-4 mb-2">
                 {step > 1 && <button onClick={() => setStep(step - 1)} className="w-8 h-8 rounded-full bg-surface flex items-center justify-center hover:bg-border transition-colors"><span className="text-primary font-bold">&larr;</span></button>}
                 <h1 className="text-2xl font-bold tracking-tight text-primary">
-                  {step === 1 && "What are you transporting?"}
-                  {step === 2 && "Select Cargo Details"}
-                  {step === 3 && "Recommended Vehicles"}
-                  {step === 4 && "Finalize Booking"}
+                  {step === 1 && "Select Category"}
+                  {step === 2 && "Select Items"}
+                  {step === 3 && "Select Vehicle Type"}
+                  {step === 4 && "Enter Details"}
+                  {step === 5 && "Review & Confirm"}
                 </h1>
               </div>
-              <div className="flex gap-2 mt-4">{[1,2,3,4].map(s => <div key={s} className={`h-1.5 flex-1 rounded-full ${s <= step ? 'bg-primary' : 'bg-surfaceHighlight'}`}></div>)}</div>
+              <div className="flex justify-between text-[10px] text-zinc-400 font-bold uppercase tracking-wider mb-2">
+                <span className={step === 1 ? 'text-black' : ''}>Category</span>
+                <span className={step === 2 ? 'text-black' : ''}>Items</span>
+                <span className={step === 3 ? 'text-black' : ''}>Vehicle</span>
+                <span className={step === 4 ? 'text-black' : ''}>Location</span>
+                <span className={step === 5 ? 'text-black' : ''}>Review</span>
+              </div>
+              <div className="flex gap-2 mt-1">{[1,2,3,4,5].map(s => <div key={s} className={`h-1.5 flex-1 rounded-full ${s <= step ? 'bg-primary' : 'bg-surfaceHighlight'}`}></div>)}</div>
             </div>
           ) : (
             <div className="p-6 border-b border-border bg-white sticky top-0 z-10">
@@ -433,9 +633,10 @@ export default function UserDashboard() {
                   <div className="grid grid-cols-2 gap-4">
                     {categories.length === 0 ? <p className="col-span-2 text-muted text-sm text-center py-8">Loading Categories...</p> :
                       categories.map((cat, i) => (
-                        <button key={i} onClick={() => handleCategorySelect(cat)} className="p-4 border-2 border-transparent border-b-border bg-white rounded-2xl hover:border-black transition-all text-left shadow-sm flex flex-col gap-3 group">
-                          <span className="text-3xl bg-surface w-12 h-12 flex items-center justify-center rounded-xl group-hover:scale-105 transition-transform">{getIconForCategory(cat)}</span>
+                        <button key={i} onClick={() => handleCategorySelect(cat)} className="p-4 border-2 border-transparent border-b-border bg-white rounded-2xl hover:border-black active:scale-[0.98] transition-all text-left shadow-sm flex flex-col gap-3 group relative overflow-hidden">
+                          <span className="text-3xl bg-surface w-12 h-12 flex items-center justify-center rounded-xl group-hover:scale-115 transition-transform duration-300">{getIconForCategory(cat)}</span>
                           <h3 className="font-bold text-primary tracking-tight">{cat}</h3>
+                          <div className="absolute right-4 bottom-4 text-zinc-300 group-hover:text-black group-hover:translate-x-1 transition-all duration-300 font-bold">&rarr;</div>
                         </button>
                       ))
                     }
@@ -443,116 +644,160 @@ export default function UserDashboard() {
                 )}
 
                 {step === 2 && selectedCategory && (
-                  <div className="space-y-3">
-                    <div className="bg-surfaceHighlight border border-border rounded-xl p-4 mb-6 flex items-center gap-4">
+                  <div className="space-y-4">
+                    <div className="bg-surfaceHighlight border border-border rounded-xl p-4 flex items-center gap-4">
                       <span className="text-3xl">{getIconForCategory(selectedCategory)}</span>
-                      <div><span className="text-xs text-muted uppercase font-bold tracking-wider">Selected</span><h3 className="font-bold text-primary">{selectedCategory}</h3></div>
+                      <div><span className="text-xs text-muted uppercase font-bold tracking-wider">Category Selected</span><h3 className="font-bold text-primary">{selectedCategory}</h3></div>
                     </div>
-                    <h4 className="font-bold text-lg mb-4">Select specific type</h4>
-                    {isLoading ? <p className="text-muted text-sm py-4">Loading...</p> : cargoTypes.length === 0 ? <p className="text-muted text-sm py-4">No cargo types found.</p> :
-                      cargoTypes.map((cargo) => (
-                        <button key={cargo._id} onClick={() => handleCargoSelect(cargo)} className="w-full text-left p-5 border border-border rounded-xl bg-white hover:border-black hover:shadow-sm transition-all flex justify-between items-center">
-                          <div><span className="font-bold text-primary block">{cargo.name}</span>{cargo.description && <span className="text-xs text-muted mt-1 block">{cargo.description}</span>}</div>
-                          <span className="text-muted">&rarr;</span>
-                        </button>
-                      ))
-                    }
+                    <h4 className="font-bold text-lg mb-2 text-primary">Select Items to Transport</h4>
+                    <p className="text-xs text-muted mb-4">You can select multiple items to continue.</p>
+
+                    <div className="flex flex-wrap gap-2.5">
+                      {CATEGORY_ITEMS[selectedCategory]?.map((item) => {
+                        const isSelected = selectedItems.includes(item);
+                        return (
+                          <button
+                            key={item}
+                            type="button"
+                            onClick={() => {
+                              if (isSelected) {
+                                setSelectedItems(selectedItems.filter(i => i !== item));
+                              } else {
+                                setSelectedItems([...selectedItems, item]);
+                              }
+                            }}
+                            className={`px-4 py-3 rounded-xl border text-sm font-semibold tracking-tight transition-all duration-200 flex items-center gap-2 ${
+                              isSelected
+                                ? 'bg-black border-black text-white shadow-sm'
+                                : 'bg-zinc-50 border-border text-zinc-700 hover:border-zinc-400 hover:bg-zinc-100'
+                            }`}
+                          >
+                            <span className={`w-4 h-4 flex items-center justify-center rounded border transition-colors ${
+                              isSelected ? 'bg-white border-white text-black' : 'border-zinc-300'
+                            }`}>
+                              {isSelected && <span className="text-[10px] font-bold">✓</span>}
+                            </span>
+                            {item}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <div className="mt-8 pt-4 border-t border-border flex justify-end">
+                      <button
+                        onClick={handleItemsContinue}
+                        disabled={selectedItems.length === 0}
+                        className="btn-primary flex items-center gap-2 bg-black text-white hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed font-bold py-3 px-6 rounded-xl transition-all"
+                      >
+                        Continue &rarr;
+                      </button>
+                    </div>
                   </div>
                 )}
 
                 {step === 3 && (
                   <div className="space-y-4">
-                    <div className="flex justify-between items-center bg-primary text-white p-4 rounded-xl mb-6 shadow-md">
-                      <div><span className="text-[10px] font-bold tracking-wider uppercase opacity-70">AI Matched for</span><h3 className="font-bold text-lg">{selectedCargo?.name}</h3></div>
+                    <div className="bg-zinc-950 text-white p-4 rounded-xl flex justify-between items-center shadow-md">
+                      <div>
+                        <span className="text-[10px] font-bold tracking-wider uppercase opacity-75">Selected Items</span>
+                        <h3 className="font-bold text-sm truncate max-w-[280px]">{selectedItems.join(', ')}</h3>
+                      </div>
                       <span className="text-2xl">✨</span>
                     </div>
-                    {isLoading ? <p className="text-muted text-sm py-4">Running Pricing Engine...</p> : recommendations.length === 0 ?
+
+                    <h4 className="font-bold text-lg mb-2 text-primary font-bold">Select Vehicle Type</h4>
+                    <p className="text-xs text-muted mb-4">Choose the vehicle that fits your load specifications.</p>
+
+                    {isLoading ? <p className="text-muted text-sm py-4">Matching vehicles...</p> : recommendations.length === 0 ?
                       <div className="bg-red-50 border border-red-200 text-red-600 p-4 rounded-xl"><p className="font-bold">No Vehicles Available</p></div> :
-                      recommendations.map((veh) => (
-                        <button key={veh.vehicleTypeId} onClick={() => handleVehicleSelect(veh)} className="w-full text-left border-2 rounded-2xl p-4 transition-all border-transparent bg-white hover:border-border border-b-border group">
-                          <div className="flex justify-between items-start">
-                            <div className="flex gap-4">
-                              <div className="w-16 h-16 bg-surface rounded-xl flex items-center justify-center border border-border"><span className="text-3xl">🚚</span></div>
-                              <div><h3 className="font-bold text-primary text-lg">{veh.name}</h3><div className="flex items-center gap-2 mt-1"><span className="text-xs bg-surface px-2 py-0.5 rounded font-bold">{veh.capacity} kg</span><span className="text-xs text-muted">{veh.category}</span></div></div>
+                      recommendations.map((veh) => {
+                        const meta = VEHICLE_METADATA[veh.name] || {
+                          capacity: `${veh.capacity} kg`,
+                          dimensions: "Standard Open Bed",
+                          cargo: "General cargo",
+                          emoji: "🚚"
+                        };
+                        const isSelected = selectedVehicle?.name === veh.name;
+
+                        return (
+                          <button 
+                            key={veh.vehicleTypeId} 
+                            onClick={() => handleVehicleSelect(veh)} 
+                            className={`w-full text-left border-2 rounded-2xl p-5 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 ${
+                              isSelected ? 'border-black bg-zinc-50 shadow-sm' : 'border-border bg-white hover:border-zinc-400 hover:shadow-xs'
+                            }`}
+                          >
+                            <div className="flex gap-4 items-center">
+                              <div className="w-16 h-16 bg-surface rounded-xl flex items-center justify-center border border-border shrink-0">
+                                <span className="text-4xl">{meta.emoji}</span>
+                              </div>
+                              <div className="space-y-1">
+                                <h3 className="font-black text-primary text-lg leading-tight">{veh.name}</h3>
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className="text-xs bg-zinc-200 px-2.5 py-0.5 rounded-md font-bold text-zinc-800">{meta.capacity}</span>
+                                  <span className="text-xs text-muted font-medium">{meta.dimensions}</span>
+                                </div>
+                                <p className="text-[11px] text-zinc-500 leading-tight">
+                                  <span className="font-semibold text-zinc-700">Cargo:</span> {meta.cargo}
+                                </p>
+                              </div>
                             </div>
-                            <div className="text-right"><p className="font-black text-xl text-primary">₹{veh.estimatedPrice}</p><p className="text-[10px] uppercase font-bold text-muted mt-1">Est. Fare</p></div>
-                          </div>
-                          {veh.breakdown && (
-                            <div className="mt-3 pt-3 border-t border-border/50 grid grid-cols-3 gap-2 text-[11px]">
-                              <div><span className="text-muted block">Base</span><span className="font-bold">₹{veh.breakdown.baseFare}</span></div>
-                              <div><span className="text-muted block">Distance</span><span className="font-bold">₹{veh.breakdown.distanceCost}</span></div>
-                              <div><span className="text-muted block">Load</span><span className="font-bold">₹{veh.breakdown.loadCost}</span></div>
-                              {veh.breakdown.surgeMultiplier > 1 && <div><span className="text-red-500 block">Surge</span><span className="font-bold text-red-500">×{veh.breakdown.surgeMultiplier}</span></div>}
-                              {veh.breakdown.nightSurcharge > 0 && <div><span className="text-amber-500 block">Night</span><span className="font-bold text-amber-500">+₹{veh.breakdown.nightSurcharge}</span></div>}
+                            <div className="text-right shrink-0 flex flex-row md:flex-col justify-between items-center md:items-end w-full md:w-auto pt-3 md:pt-0 border-t md:border-t-0 border-zinc-100">
+                              <div>
+                                <p className="text-[10px] uppercase font-bold text-zinc-400">Est. Fare</p>
+                                <p className="font-black text-2xl text-primary">₹{veh.estimatedPrice}</p>
+                              </div>
                             </div>
-                          )}
-                        </button>
-                      ))
+                          </button>
+                        );
+                      })
                     }
                   </div>
                 )}
 
                 {step === 4 && selectedVehicle && (
-                  <div className="space-y-6 pb-10">
+                  <div className="space-y-6">
                     <div className="bg-surfaceHighlight border border-border rounded-xl p-4 flex justify-between items-center">
-                      <div><span className="text-xs text-muted uppercase font-bold tracking-wider block mb-1">Selected</span><h3 className="font-bold text-primary">{selectedVehicle.name}</h3></div>
+                      <div><span className="text-xs text-muted uppercase font-bold tracking-wider block mb-1">Selected Vehicle</span><h3 className="font-bold text-primary">{selectedVehicle.name}</h3></div>
                       <p className="font-black text-xl text-primary">₹{selectedVehicle.estimatedPrice}</p>
                     </div>
 
-                    {/* Transparent Pricing Breakdown */}
-                    {selectedVehicle.breakdown && (
-                      <div className="bg-white border border-border rounded-xl overflow-hidden">
-                        <div className="p-4 border-b border-border bg-surface"><h4 className="font-bold text-sm uppercase tracking-wider text-muted">Fare Breakdown</h4></div>
-                        <div className="p-4 space-y-2.5 text-sm">
-                          <div className="flex justify-between"><span className="text-muted">Base Fare</span><span className="font-bold">₹{selectedVehicle.breakdown.baseFare}</span></div>
-                          <div className="flex justify-between"><span className="text-muted">Distance ({tripDistance.toFixed(1)} km)</span><span className="font-bold">₹{selectedVehicle.breakdown.distanceCost}</span></div>
-                          <div className="flex justify-between"><span className="text-muted">Load Charge</span><span className="font-bold">₹{selectedVehicle.breakdown.loadCost}</span></div>
-                          <div className="flex justify-between"><span className="text-muted">Vehicle Multiplier</span><span className="font-bold">×{selectedVehicle.breakdown.vehicleMultiplier}</span></div>
-                          {selectedVehicle.breakdown.surgeMultiplier > 1 && (
-                            <div className="flex justify-between text-red-500"><span>Surge Pricing</span><span className="font-bold">×{selectedVehicle.breakdown.surgeMultiplier}</span></div>
-                          )}
-                          {selectedVehicle.breakdown.nightSurcharge > 0 && (
-                            <div className="flex justify-between text-amber-600"><span>Night Surcharge</span><span className="font-bold">+₹{selectedVehicle.breakdown.nightSurcharge}</span></div>
-                          )}
-                          <div className="border-t border-border pt-2 mt-2 flex justify-between text-base">
-                            <span className="font-bold">Total Estimated Fare</span>
-                            <span className="font-black text-primary text-lg">₹{selectedVehicle.breakdown.totalFare}</span>
-                          </div>
+                    <h4 className="font-bold text-lg mb-2 text-primary font-bold">Location & Contact Details</h4>
+
+                    <div className="space-y-5">
+                      {/* Pickup Details */}
+                      <div className="p-4 border border-zinc-200 rounded-xl bg-white space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-green-600 flex items-center gap-1.5">
+                            <span className="w-2.5 h-2.5 bg-green-500 rounded-full inline-block"></span>
+                            PICKUP DETAILS
+                          </span>
+                          <button
+                            type="button"
+                            onClick={handleGetCurrentLocation}
+                            className="text-xs font-bold bg-zinc-100 hover:bg-zinc-200 text-zinc-700 px-3 py-1.5 rounded-lg flex items-center gap-1 border border-zinc-300 transition-colors"
+                          >
+                            📍 Use Current Location
+                          </button>
                         </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-                
-                {/* Always show locations selection when step < 4 */}
-                {step < 4 && (
-                  <div className="mt-8 border-t border-border pt-8">
-                    <h4 className="font-bold text-lg mb-4">Logistics Details</h4>
-                    <div className="bg-inputBg rounded-xl p-4 border border-transparent focus-within:border-black transition-colors">
-                      <div className="relative pl-8 space-y-4">
-                        <div className="absolute left-[11px] top-5 bottom-5 w-0.5 bg-black z-0"></div>
-                        
-                        {/* Pickup Input and Suggestions */}
-                        <div className="relative z-20 flex flex-col w-full">
-                          <div className="relative flex items-center">
-                            <div className="w-2 h-2 bg-black rounded-full absolute -left-[27px]"></div>
-                            <input 
-                              type="text" 
-                              placeholder="Pickup location" 
-                              value={pickupAddress} 
-                              onChange={e => { setPickupAddress(e.target.value); setPickupLocation(null); }} 
-                              onFocus={() => setIsPickupFocused(true)}
-                              onBlur={() => setTimeout(() => setIsPickupFocused(false), 200)}
-                              className="w-full bg-white rounded-md px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black shadow-sm text-primary" 
-                            />
-                          </div>
+
+                        <div className="relative">
+                          <input 
+                            type="text" 
+                            placeholder="Search Pickup Address" 
+                            value={pickupAddress} 
+                            onChange={e => { setPickupAddress(e.target.value); setPickupLocation(null); }} 
+                            onFocus={() => setIsPickupFocused(true)}
+                            onBlur={() => setTimeout(() => setIsPickupFocused(false), 200)}
+                            className="w-full bg-zinc-50 border border-zinc-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black text-primary font-medium" 
+                          />
                           {isPickupFocused && pickupSuggestions.length > 0 && (
                             <div className="absolute left-0 right-0 top-full mt-1 max-h-60 overflow-y-auto bg-white border border-border rounded-lg shadow-lg z-[100]">
                               {pickupSuggestions.map((item, idx) => (
                                 <div 
                                   key={idx} 
                                   onMouseDown={() => handleSelectPickup(item)} 
-                                  className="px-4 py-2.5 hover:bg-surfaceHighlight text-xs text-primary font-medium cursor-pointer transition-colors border-b border-border last:border-0 truncate"
+                                  className="px-4 py-2.5 hover:bg-zinc-50 text-xs text-primary font-medium cursor-pointer transition-colors border-b border-border last:border-0 truncate"
                                 >
                                   📍 {item.display_name}
                                 </div>
@@ -561,27 +806,55 @@ export default function UserDashboard() {
                           )}
                         </div>
 
-                        {/* Dropoff Input and Suggestions */}
-                        <div className="relative z-10 flex flex-col w-full">
-                          <div className="relative flex items-center">
-                            <div className="w-2 h-2 bg-black absolute -left-[27px]"></div>
-                            <input 
-                              type="text" 
-                              placeholder="Drop location" 
-                              value={dropoffAddress} 
-                              onChange={e => { setDropoffAddress(e.target.value); setDropoffLocation(null); }} 
-                              onFocus={() => setIsDropoffFocused(true)}
-                              onBlur={() => setTimeout(() => setIsDropoffFocused(false), 200)}
-                              className="w-full bg-white rounded-md px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black shadow-sm text-primary" 
-                            />
-                          </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                          <input
+                            type="text"
+                            placeholder="Landmark"
+                            value={pickupLandmark}
+                            onChange={e => setPickupLandmark(e.target.value)}
+                            className="w-full bg-zinc-50 border border-zinc-300 rounded-lg px-3 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-black text-primary"
+                          />
+                          <input
+                            type="text"
+                            placeholder="Contact Name"
+                            value={pickupContactName}
+                            onChange={e => setPickupContactName(e.target.value)}
+                            className="w-full bg-zinc-50 border border-zinc-300 rounded-lg px-3 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-black text-primary"
+                          />
+                          <input
+                            type="text"
+                            placeholder="Contact Phone"
+                            value={pickupContactPhone}
+                            onChange={e => setPickupContactPhone(e.target.value)}
+                            className="w-full bg-zinc-50 border border-zinc-300 rounded-lg px-3 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-black text-primary"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Delivery Details */}
+                      <div className="p-4 border border-zinc-200 rounded-xl bg-white space-y-3">
+                        <span className="text-xs font-bold text-red-600 flex items-center gap-1.5">
+                          <span className="w-2.5 h-2.5 bg-red-500 rounded-full inline-block"></span>
+                          DELIVERY DETAILS
+                        </span>
+
+                        <div className="relative">
+                          <input 
+                            type="text" 
+                            placeholder="Search Delivery Address" 
+                            value={dropoffAddress} 
+                            onChange={e => { setDropoffAddress(e.target.value); setDropoffLocation(null); }} 
+                            onFocus={() => setIsDropoffFocused(true)}
+                            onBlur={() => setTimeout(() => setIsDropoffFocused(false), 200)}
+                            className="w-full bg-zinc-50 border border-zinc-300 rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-black text-primary font-medium" 
+                          />
                           {isDropoffFocused && dropoffSuggestions.length > 0 && (
                             <div className="absolute left-0 right-0 top-full mt-1 max-h-60 overflow-y-auto bg-white border border-border rounded-lg shadow-lg z-[100]">
                               {dropoffSuggestions.map((item, idx) => (
                                 <div 
                                   key={idx} 
                                   onMouseDown={() => handleSelectDropoff(item)} 
-                                  className="px-4 py-2.5 hover:bg-surfaceHighlight text-xs text-primary font-medium cursor-pointer transition-colors border-b border-border last:border-0 truncate"
+                                  className="px-4 py-2.5 hover:bg-zinc-50 text-xs text-primary font-medium cursor-pointer transition-colors border-b border-border last:border-0 truncate"
                                 >
                                   📍 {item.display_name}
                                 </div>
@@ -589,7 +862,137 @@ export default function UserDashboard() {
                             </div>
                           )}
                         </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                          <input
+                            type="text"
+                            placeholder="Landmark"
+                            value={dropoffLandmark}
+                            onChange={e => setDropoffLandmark(e.target.value)}
+                            className="w-full bg-zinc-50 border border-zinc-300 rounded-lg px-3 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-black text-primary"
+                          />
+                          <input
+                            type="text"
+                            placeholder="Contact Name"
+                            value={dropoffContactName}
+                            onChange={e => setDropoffContactName(e.target.value)}
+                            className="w-full bg-zinc-50 border border-zinc-300 rounded-lg px-3 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-black text-primary"
+                          />
+                          <input
+                            type="text"
+                            placeholder="Contact Phone"
+                            value={dropoffContactPhone}
+                            onChange={e => setDropoffContactPhone(e.target.value)}
+                            className="w-full bg-zinc-50 border border-zinc-300 rounded-lg px-3 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-black text-primary"
+                          />
+                        </div>
                       </div>
+                    </div>
+
+                    <div className="mt-8 pt-4 border-t border-border flex justify-end">
+                      <button
+                        onClick={handleLocationContinue}
+                        disabled={
+                          !pickupAddress || !dropoffAddress || 
+                          !pickupContactName || !pickupContactPhone || 
+                          !dropoffContactName || !dropoffContactPhone || isLoading
+                        }
+                        className="btn-primary flex items-center gap-2 bg-black text-white hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed font-bold py-3 px-6 rounded-xl transition-all"
+                      >
+                        {isLoading ? 'Routing...' : 'Continue'} &rarr;
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {step === 5 && selectedVehicle && (
+                  <div className="space-y-6 pb-10">
+                    <h4 className="font-bold text-lg text-primary">Review Booking Summary</h4>
+
+                    <div className="space-y-4">
+                      {/* Category & Items Summary */}
+                      <div className="p-4 border border-zinc-200 rounded-xl bg-white space-y-2">
+                        <div className="flex justify-between items-center">
+                          <span className="text-xs font-bold text-zinc-400">CATEGORY</span>
+                          <span className="text-xs bg-zinc-100 px-2 py-0.5 rounded font-bold text-primary">{selectedCategory}</span>
+                        </div>
+                        <div>
+                          <span className="text-xs font-bold text-zinc-400">ITEMS TO TRANSPORT</span>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {selectedItems.map(item => (
+                              <span key={item} className="text-[11px] bg-zinc-900 text-white px-2.5 py-0.5 rounded-full font-semibold">
+                                {item}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Vehicle Summary */}
+                      <div className="p-4 border border-zinc-200 rounded-xl bg-white flex justify-between items-center">
+                        <div className="flex items-center gap-3">
+                          <span className="text-3xl">{VEHICLE_METADATA[selectedVehicle.name]?.emoji || '🚚'}</span>
+                          <div>
+                            <span className="text-xs font-bold text-zinc-400 block">VEHICLE TYPE</span>
+                            <h4 className="font-bold text-sm text-primary">{selectedVehicle.name}</h4>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-xs font-bold text-zinc-400 block">EST. FARE</span>
+                          <p className="font-black text-lg text-primary">₹{selectedVehicle.estimatedPrice}</p>
+                        </div>
+                      </div>
+
+                      {/* Route Details */}
+                      <div className="p-4 border border-zinc-200 rounded-xl bg-white space-y-3 text-xs">
+                        <div>
+                          <span className="text-zinc-400 font-bold block mb-1">PICKUP ADDRESS</span>
+                          <p className="font-semibold text-primary">{pickupAddress}</p>
+                          <div className="grid grid-cols-2 gap-2 mt-1.5 text-zinc-500">
+                            <div><span className="font-bold">Contact:</span> {pickupContactName}</div>
+                            <div><span className="font-bold">Phone:</span> {pickupContactPhone}</div>
+                            {pickupLandmark && <div className="col-span-2"><span className="font-bold">Landmark:</span> {pickupLandmark}</div>}
+                          </div>
+                        </div>
+
+                        <div className="border-t border-zinc-100 pt-3">
+                          <span className="text-zinc-400 font-bold block mb-1">DELIVERY ADDRESS</span>
+                          <p className="font-semibold text-primary">{dropoffAddress}</p>
+                          <div className="grid grid-cols-2 gap-2 mt-1.5 text-zinc-500">
+                            <div><span className="font-bold">Contact:</span> {dropoffContactName}</div>
+                            <div><span className="font-bold">Phone:</span> {dropoffContactPhone}</div>
+                            {dropoffLandmark && <div className="col-span-2"><span className="font-bold">Landmark:</span> {dropoffLandmark}</div>}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Pricing Breakdown Ticket */}
+                      {selectedVehicle.breakdown && (
+                        <div className="bg-white border border-zinc-200 rounded-xl overflow-hidden shadow-xs">
+                          <div className="p-3.5 border-b border-zinc-200 bg-zinc-50 flex items-center justify-between">
+                            <h4 className="font-bold text-xs uppercase tracking-wider text-zinc-500 font-bold">Fare Breakdown</h4>
+                            <span className="text-xs bg-zinc-200 font-bold text-zinc-700 px-2 py-0.5 rounded">
+                              {tripDistance ? `${tripDistance.toFixed(1)} km` : '-'}
+                            </span>
+                          </div>
+                          <div className="p-4 space-y-2.5 text-sm">
+                            <div className="flex justify-between"><span className="text-zinc-400 font-medium">Base Fare</span><span className="font-bold text-primary">₹{selectedVehicle.breakdown.baseFare}</span></div>
+                            <div className="flex justify-between"><span className="text-zinc-400 font-medium">Distance Cost</span><span className="font-bold text-primary">₹{selectedVehicle.breakdown.distanceCost}</span></div>
+                            <div className="flex justify-between"><span className="text-zinc-400 font-medium">Load Surcharge</span><span className="font-bold text-primary">₹{selectedVehicle.breakdown.loadCost}</span></div>
+                            <div className="flex justify-between"><span className="text-zinc-400 font-medium">Vehicle Multiplier</span><span className="font-bold text-primary">×{selectedVehicle.breakdown.vehicleMultiplier}</span></div>
+                            {selectedVehicle.breakdown.surgeMultiplier > 1 && (
+                              <div className="flex justify-between text-red-500 font-semibold"><span>Surge Multiplier</span><span>×{selectedVehicle.breakdown.surgeMultiplier}</span></div>
+                            )}
+                            {selectedVehicle.breakdown.nightSurcharge > 0 && (
+                              <div className="flex justify-between text-amber-600 font-semibold"><span>Night Surcharge</span><span>+₹{selectedVehicle.breakdown.nightSurcharge}</span></div>
+                            )}
+                            <div className="border-t border-zinc-200 pt-2.5 mt-2 flex justify-between text-base font-bold text-primary">
+                              <span>Total Estimated Cost</span>
+                              <span className="font-black text-lg">₹{selectedVehicle.breakdown.totalFare}</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -709,7 +1112,7 @@ export default function UserDashboard() {
                                 setDropoffAddress(b.dropLocation?.address || '');
                                 setDropoffLocation({ lat: b.dropLocation?.latitude, lng: b.dropLocation?.longitude, address: b.dropLocation?.address });
                                 setSelectedCategory(b.category);
-                                setSelectedCargo({ name: b.subcategory || b.loadType, _id: b.subcategory });
+                                setSelectedItems(b.subcategory ? b.subcategory.split(', ') : []);
                                 setStep(3); // Go to vehicle recommendations
                                 setActiveTab('booking');
                               }}
@@ -740,7 +1143,7 @@ export default function UserDashboard() {
             )}
           </div>
 
-          {activeTab === 'booking' && step === 4 && selectedVehicle && (
+          {activeTab === 'booking' && step === 5 && selectedVehicle && (
             <div className="p-6 border-t border-border bg-white mt-auto z-20">
               <button className="flex justify-between items-center w-full py-4 px-5 bg-white hover:bg-surface rounded-xl transition-colors border-2 border-border mb-4 shadow-sm" onClick={() => setShowPaymentModal(true)}>
                 <div className="flex items-center gap-3">

@@ -13,8 +13,7 @@ const cargoTypeSchema = new mongoose.Schema({
       'Industrial Goods', 
       'Heavy Equipment Transport', 
       'Vehicle Transport', 
-      'Special Goods', 
-      'Waste/Disposal'
+      'Special Goods'
     ], 
     required: true 
   },

@@ -67,13 +67,6 @@ const hierarchy = [
       { name: "Fresh Produce", vehicles: [{ name: "Pickup", capacity: "800 kg", baseFare: 200, perKmRate: 15 }] },
       { name: "Grain Bags", vehicles: [{ name: "Mini Truck", capacity: "1.5 ton", baseFare: 350, perKmRate: 20 }] }
     ]
-  },
-  {
-    name: "Waste / Disposal",
-    icon: "🗑️",
-    subcategories: [
-      { name: "Garbage / Debris", vehicles: [{ name: "Tipper Truck", capacity: "10 ton", baseFare: 800, perKmRate: 40 }] }
-    ]
   }
 ];
 

@@ -70,13 +70,6 @@ const vehicleData = [
   { name: "Chemical Transport Tanker", category: "Special Goods", subCategory: "Hazmat", capacityKg: 10000, volume: "Tanker", baseFare: 3000, perKmRate: 60, helperAllowed: false, description: "Certified for hazardous fluids", icon: "chemical_tank", isActive: true },
   { name: "Medical Supply Van", category: "Special Goods", subCategory: "Urgent/Sterile", capacityKg: 500, volume: "Van", baseFare: 1000, perKmRate: 30, helperAllowed: false, description: "Fast, sterile delivery of urgent medical supplies", icon: "ambulance", isActive: true },
 
-  // 10. WASTE / DISPOSAL
-  { name: "Garbage Truck", category: "Waste / Disposal", subCategory: "Municipal", capacityKg: 5000, volume: "Compactor", baseFare: 1500, perKmRate: 40, helperAllowed: true, description: "General municipal solid waste", icon: "garbage_truck", isActive: true },
-  { name: "Dump Truck", category: "Waste / Disposal", subCategory: "Bulk", capacityKg: 8000, volume: "Dump Bed", baseFare: 1200, perKmRate: 45, helperAllowed: false, description: "Massive debris clearing", icon: "dump_truck", isActive: true },
-  { name: "Scrap Pickup Vehicle", category: "Waste / Disposal", subCategory: "Recycling", capacityKg: 1500, volume: "Open", baseFare: 400, perKmRate: 20, helperAllowed: true, description: "Metal and recycling collection", icon: "pickup", isActive: true },
-  { name: "Waste Collection Van", category: "Waste / Disposal", subCategory: "Light Duty", capacityKg: 800, volume: "Van", baseFare: 350, perKmRate: 18, helperAllowed: true, description: "Bio-hazard and small scale waste", icon: "van", isActive: true },
-  { name: "Debris Removal Truck", category: "Waste / Disposal", subCategory: "Construction", capacityKg: 4000, volume: "Open", baseFare: 800, perKmRate: 30, helperAllowed: true, description: "Construction and demolition waste", icon: "truck", isActive: true },
-
   // Special Category: CONSTRUCTION EQUIPMENT
   { name: "JCB (Excavator)", category: "Construction Equipment", subCategory: "Earthmoving", capacityKg: 8000, volume: "Heavy", baseFare: 2500, perKmRate: 100, helperAllowed: false, description: "Earthmoving and digging equipment", icon: "excavator", isActive: true },
   { name: "Crane (Small/Heavy)", category: "Construction Equipment", subCategory: "Lifting", capacityKg: 15000, volume: "Heavy", baseFare: 5000, perKmRate: 200, helperAllowed: false, description: "High altitude lifting services", icon: "crane", isActive: true },
