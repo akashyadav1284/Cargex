@@ -145,10 +145,14 @@ export default function DriverDashboard() {
 
     newSocket.on('disconnect', () => setIsConnected(false));
     
-    // Core Sync Trigger — admin pushes driver record updates
+    // Core Sync Trigger — admin/socket pushes driver record updates
     newSocket.on('driver_updated', (updatedDriverRecord) => {
       setProfile(updatedDriverRecord);
       setEditForm({ phone: updatedDriverRecord.phone || '', address: updatedDriverRecord.address || '', city: updatedDriverRecord.city || '', profilePhoto: updatedDriverRecord.documents?.profilePhoto || '' });
+      setIsAvailable(updatedDriverRecord.isOnline);
+      if (updatedDriverRecord.isOnline) {
+        fetchActiveRequest();
+      }
     });
 
     // New ride request from a user

@@ -96,12 +96,24 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('join_driver', (driverId) => {
+  socket.on('join_driver', async (driverId) => {
     if (driverId) {
       socket.join(`driver_${driverId}`);
       // Join global pool for dispatching
       socket.join('available_drivers');
       console.log(`Driver ${driverId} connected to secure room.`);
+
+      // Automatically set driver to online in database and broadcast profile sync
+      try {
+        const Driver = require('./models/Driver');
+        const updatedDriver = await Driver.findByIdAndUpdate(driverId, { isOnline: true }, { new: true }).select('-password');
+        if (updatedDriver) {
+          io.to(`driver_${driverId}`).emit('driver_updated', updatedDriver);
+          console.log(`Driver ${driverId} status set to online in DB.`);
+        }
+      } catch (err) {
+        console.error('Failed to update driver status on join:', err);
+      }
     }
   });
 
@@ -139,8 +151,17 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('disconnect', () => {
+  socket.on('disconnect', async () => {
     console.log(`User disconnected: ${socket.id}`);
+    if (socket.user && socket.user.role === 'driver') {
+      try {
+        const Driver = require('./models/Driver');
+        await Driver.findByIdAndUpdate(socket.user.id, { isOnline: false });
+        console.log(`Driver ${socket.user.id} status set to offline on disconnect.`);
+      } catch (err) {
+        console.error('Failed to update driver status on disconnect:', err);
+      }
+    }
   });
 });
 
