@@ -143,20 +143,20 @@ export default function DriversPage() {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        {driver.availabilityStatus === "active" && <CheckCircle className="w-4 h-4 text-green-500" />}
-                        {driver.availabilityStatus === "offline" && <XCircle className="w-4 h-4 text-zinc-500" />}
+                        {(driver.availabilityStatus === "active" || (!driver.availabilityStatus && driver.isOnline)) && <CheckCircle className="w-4 h-4 text-green-500" />}
+                        {(driver.availabilityStatus === "offline" || (!driver.availabilityStatus && !driver.isOnline)) && <XCircle className="w-4 h-4 text-zinc-500" />}
                         {driver.availabilityStatus === "on_trip" && <div className="w-4 h-4 rounded-full border-2 border-blue-500 border-t-transparent animate-spin" />}
                         <span className={`text-sm capitalize ${
-                          driver.availabilityStatus === "active" ? "text-green-500" : 
-                          driver.availabilityStatus === "offline" ? "text-zinc-400" : "text-blue-500"
-                        }`}>{driver.availabilityStatus.replace('_', ' ')}</span>
+                          (driver.availabilityStatus === "active" || (!driver.availabilityStatus && driver.isOnline)) ? "text-green-500" : 
+                          (driver.availabilityStatus === "offline" || (!driver.availabilityStatus && !driver.isOnline)) ? "text-zinc-400" : "text-blue-500"
+                        }`}>{((driver.availabilityStatus || (driver.isOnline ? "active" : "offline"))).replace('_', ' ')}</span>
                       </div>
                     </TableCell>
                     <TableCell className="text-right text-zinc-300">-</TableCell>
                     <TableCell className="text-right text-zinc-300">
-                      {driver.rating > 0 ? (
+                      {(driver.ratings?.averageRating || driver.rating || 0) > 0 ? (
                         <span className="flex items-center justify-end gap-1">
-                          {driver.rating} <span className="text-yellow-500">★</span>
+                          {driver.ratings?.averageRating || driver.rating} <span className="text-yellow-500">★</span>
                         </span>
                       ) : "-"}
                     </TableCell>
