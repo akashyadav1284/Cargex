@@ -87,7 +87,7 @@ const loginDriver = async (req, res) => {
       const { accessToken, refreshToken } = generateTokens(driver._id, 'driver');
       setAuthCookies(res, accessToken, refreshToken, 'driver');
       
-      res.json({ _id: driver._id, name: driver.fullName, email: driver.email, isApproved: driver.isApproved, role: 'driver' });
+      res.json({ _id: driver._id, name: driver.fullName, email: driver.email, isApproved: driver.isApproved, role: 'driver', token: accessToken });
     } else {
       res.status(401).json({ message: 'Invalid credentials' });
     }
