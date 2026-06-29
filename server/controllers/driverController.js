@@ -271,8 +271,19 @@ const getActiveRequest = async (req, res) => {
   }
 };
 
+// @desc    Get all available pending dispatches (Job Board)
+const getAvailableJobs = async (req, res) => {
+  try {
+    const jobs = await Booking.find({ status: 'requested' }).sort({ createdAt: -1 }).lean();
+    res.json(jobs);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = { 
   acceptRide, startRide, completeRide, updateLocation, 
   toggleAvailability, getEarnings, getProfile, 
-  updateProfile, getRides, getVehicles, getActiveRequest
+  updateProfile, getRides, getVehicles, getActiveRequest,
+  getAvailableJobs
 };
