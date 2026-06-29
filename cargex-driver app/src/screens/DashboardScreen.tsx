@@ -99,8 +99,9 @@ export default function DashboardScreen({ navigation }: any) {
       setIsOnline(res.data.isOnline);
       Alert.alert('Status Updated', `You are now ${res.data.isOnline ? 'Online' : 'Offline'}`);
       fetchDriverData();
-    } catch (e) {
-      Alert.alert('Error', 'Failed to update online availability.');
+    } catch (e: any) {
+      const errMsg = e.response?.data?.message || e.message || 'Failed to update online availability.';
+      Alert.alert('Error', errMsg);
     } finally {
       setIsLoading(false);
     }
