@@ -1231,7 +1231,7 @@ export default function UserDashboard() {
       </div>
 
       {showPaymentModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-end md:items-center justify-center md:p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[9999] bg-black/60 flex items-end md:items-center justify-center md:p-4 backdrop-blur-sm">
           <div className="bg-white rounded-t-3xl md:rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
             <div className="p-6 border-b border-border flex justify-between items-center"><h3 className="text-2xl font-bold">Payment</h3><button onClick={() => setShowPaymentModal(false)} className="w-8 h-8 bg-surface rounded-full flex items-center justify-center hover:bg-border">✕</button></div>
             <div className="p-6 space-y-3">
@@ -1247,7 +1247,7 @@ export default function UserDashboard() {
       )}
 
       {bookingSuccess && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[9999] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-8 text-center">
             {!assignedDriver ? (
               <>

@@ -571,7 +571,7 @@ export default function DriverDashboard() {
       </footer>
 
       {showOtpModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[9999] bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm">
           <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6">
             <h3 className="text-xl font-bold mb-2">Enter {otpType === 'pickup' ? 'PICKUP' : 'DROPOFF'} OTP</h3>
             <p className="text-xs text-muted mb-4">Verify the 4-digit code provided by the customer to proceed.</p>
