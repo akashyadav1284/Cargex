@@ -296,18 +296,18 @@ export default function UserDashboard() {
         if (userData._id) newSocket.emit('join_user', userData._id);
       } catch {}
     });
-    newSocket.on('driver_assigned', (booking) => {
+    newSocket.on('driver_assigned', (booking: any) => {
       if (booking._id === bookingId) { 
         setAssignedDriver(booking.driverId); 
         setRideStatus('accepted'); 
         setBooking(booking);
       }
     });
-    newSocket.on('ride_status_update', (data) => {
+    newSocket.on('ride_status_update', (data: any) => {
       if (data.bookingId === bookingId) { 
         setRideStatus(data.status); 
         if (data.driver) setAssignedDriver(data.driver); 
-        setBooking(prev => prev ? { ...prev, status: data.status, driverId: data.driver || prev.driverId } : null);
+        setBooking((prev: any) => prev ? { ...prev, status: data.status, driverId: data.driver || prev.driverId } : null);
       }
     });
     newSocket.on('live_location', (data) => { setDriverLocation({ lat: data.lat, lng: data.lng }); });
