@@ -1,0 +1,33 @@
+{
+  "expo": {
+    "name": "cargex-user-app",
+    "slug": "cargex-user-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.cargex.user"
+    },
+    "android": {
+      "package": "com.cargex.user",
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "e6660005-7bda-4fe8-be6e-0ed47bf63d54"
+      }
+    },
+    "owner": "akashyadav1284"
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "expo": {
+    "name": "cargex-driver-app",
+    "slug": "cargex-driver-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.cargex.driver"
+    },
+    "android": {
+      "package": "com.cargex.driver",
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "718c8bb4-12fe-4d20-a50c-1c0fc7e6b9d6"
+      }
+    },
+    "owner": "akashyadav1284"
+  }
+}
