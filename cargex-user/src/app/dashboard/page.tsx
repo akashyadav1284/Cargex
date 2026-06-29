@@ -1172,6 +1172,20 @@ export default function UserDashboard() {
                           </div>
                         </div>
                       )}
+
+                      {/* OTP display in History for active rides */}
+                      {['accepted', 'in_progress'].includes(b.status) && (
+                        <div className="mt-3 bg-amber-50 border border-amber-200 rounded-xl p-2.5 flex justify-between gap-2 text-center">
+                          <div className="flex-1 bg-white p-1 rounded-lg border border-amber-100">
+                            <span className="text-[8px] font-bold text-zinc-400 block uppercase">Pickup OTP</span>
+                            <span className="text-xs font-black text-amber-800 font-mono">{b._id.slice(-4).toUpperCase()}</span>
+                          </div>
+                          <div className="flex-1 bg-white p-1 rounded-lg border border-amber-100">
+                            <span className="text-[8px] font-bold text-zinc-400 block uppercase">Dropoff OTP</span>
+                            <span className="text-xs font-black text-amber-800 font-mono">{b._id.slice(0, 4).toUpperCase()}</span>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))
                 )}
@@ -1242,6 +1256,27 @@ export default function UserDashboard() {
                   <div className="w-12 h-12 bg-white rounded-full border border-border flex items-center justify-center shadow-sm shrink-0"><span className="text-xl font-bold text-primary">{assignedDriver.fullName?.charAt(0)}</span></div>
                   <div><h4 className="font-bold text-primary">{assignedDriver.fullName}</h4><p className="text-xs font-semibold text-muted">{assignedDriver.vehicleDetails?.numberPlate || 'CARGEX'}</p><p className="text-xs font-semibold text-accent">{assignedDriver.phone}</p></div>
                 </div>
+                {/* OTP Display Card */}
+                {bookingId && (
+                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 my-3 text-left">
+                    <p className="text-[10px] uppercase font-bold text-amber-800 tracking-wider mb-2">🔐 Security Verification OTPs</p>
+                    <div className="flex justify-between items-center gap-2">
+                      <div className="flex-1 bg-white p-2 rounded-lg border border-amber-200 text-center">
+                        <span className="text-[9px] font-bold text-zinc-400 block uppercase">Pickup OTP</span>
+                        <span className="text-sm font-black text-amber-900 tracking-wider font-mono">
+                          {bookingId.slice(-4).toUpperCase()}
+                        </span>
+                      </div>
+                      <div className="flex-1 bg-white p-2 rounded-lg border border-amber-200 text-center">
+                        <span className="text-[9px] font-bold text-zinc-400 block uppercase">Dropoff OTP</span>
+                        <span className="text-sm font-black text-amber-900 tracking-wider font-mono">
+                          {bookingId.slice(0, 4).toUpperCase()}
+                        </span>
+                      </div>
+                    </div>
+                    <p className="text-[9px] text-amber-700 text-center mt-2 font-semibold">Share these OTPs with the driver to start and end the delivery ride.</p>
+                  </div>
+                )}
                 {driverLocation && rideStatus === 'in_progress' && (
                   <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-4 text-left">
                     <p className="text-[10px] uppercase font-bold text-blue-600 tracking-wider mb-1">📡 Live GPS</p>

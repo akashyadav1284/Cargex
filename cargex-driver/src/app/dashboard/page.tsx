@@ -45,6 +45,11 @@ export default function DriverDashboard() {
   // Maps State
   const [currentLocation, setCurrentLocation] = useState<{lat: number, lng: number} | null>(null);
 
+  // OTP Modal State
+  const [showOtpModal, setShowOtpModal] = useState(false);
+  const [otpVal, setOtpVal] = useState('');
+  const [otpType, setOtpType] = useState<'pickup' | 'dropoff'>('pickup');
+
   const fetchOpts = useCallback((opts: RequestInit = {}) => ({
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include' as RequestCredentials,
@@ -265,6 +270,25 @@ export default function DriverDashboard() {
     } catch { alert('Network error.'); } finally { setIsProcessing(false); }
   };
 
+  const handleVerifyOtp = async () => {
+    if (!liveRequest) return;
+    const expected = otpType === 'pickup' 
+      ? liveRequest._id.slice(-4).toUpperCase() 
+      : liveRequest._id.slice(0, 4).toUpperCase();
+
+    if (otpVal.trim().toUpperCase() !== expected) {
+      alert(`Invalid OTP! Please verify with the customer.`);
+      return;
+    }
+
+    setShowOtpModal(false);
+    if (otpType === 'pickup') {
+      await handleStartRide();
+    } else {
+      await handleCompleteRide();
+    }
+  };
+
   if (!isAuthChecked || !profile) return (
     <div className="min-h-screen bg-surface flex items-center justify-center font-sans">
       <div className="text-center"><div className="w-10 h-10 border-4 border-black border-t-transparent rounded-full animate-spin mx-auto mb-4"></div><p className="text-muted text-sm">Synchronizing driver profile...</p></div>
@@ -370,7 +394,7 @@ export default function DriverDashboard() {
                   <h3 className="text-2xl font-black mb-1">Ride Secured</h3>
                   <p className="text-muted text-sm mb-6">Navigate to the pickup location: {liveRequest.pickupLocation?.address}</p>
                   <div className="flex gap-4">
-                    <button onClick={handleStartRide} disabled={isProcessing} className="flex-1 bg-black text-white py-4 rounded-xl font-bold shadow-lg">{isProcessing ? 'Starting...' : 'Arrived — Start Ride'}</button>
+                    <button onClick={() => { setOtpType('pickup'); setOtpVal(''); setShowOtpModal(true); }} disabled={isProcessing} className="flex-1 bg-black text-white py-4 rounded-xl font-bold shadow-lg">{isProcessing ? 'Starting...' : 'Arrived — Start Ride'}</button>
                     {currentLocation && (
                       <a href={`https://www.google.com/maps/dir/?api=1&origin=${currentLocation.lat},${currentLocation.lng}&destination=${liveRequest.pickupLocation?.latitude},${liveRequest.pickupLocation?.longitude}`} target="_blank" className="flex-1 bg-blue-600 text-white flex items-center justify-center py-4 rounded-xl font-bold shadow-lg">Start Navigation ↗</a>
                     )}
@@ -383,7 +407,7 @@ export default function DriverDashboard() {
                   <h3 className="text-2xl font-black mb-4">In Transit 🚚</h3>
                   <div className="bg-surface rounded-xl p-4 border border-border mb-6"><p className="text-xs text-muted uppercase font-bold">Destination</p><p className="font-semibold">{liveRequest.dropLocation?.address}</p></div>
                   <div className="flex gap-4">
-                    <button onClick={handleCompleteRide} disabled={isProcessing} className="flex-1 bg-green-600 text-white py-4 rounded-xl font-bold shadow-lg">Complete Delivery</button>
+                    <button onClick={() => { setOtpType('dropoff'); setOtpVal(''); setShowOtpModal(true); }} disabled={isProcessing} className="flex-1 bg-green-600 text-white py-4 rounded-xl font-bold shadow-lg">Complete Delivery</button>
                     {currentLocation && (
                       <a href={`https://www.google.com/maps/dir/?api=1&origin=${currentLocation.lat},${currentLocation.lng}&destination=${liveRequest.dropLocation?.latitude},${liveRequest.dropLocation?.longitude}`} target="_blank" className="flex-1 bg-blue-600 text-white flex items-center justify-center py-4 rounded-xl font-bold shadow-lg">Navigate Dropoff ↗</a>
                     )}
@@ -545,6 +569,27 @@ export default function DriverDashboard() {
           <p className="mt-1 font-bold text-primary">Instant Driver Partner Helpline: +91 9467658854</p>
         </div>
       </footer>
+
+      {showOtpModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl p-6">
+            <h3 className="text-xl font-bold mb-2">Enter {otpType === 'pickup' ? 'PICKUP' : 'DROPOFF'} OTP</h3>
+            <p className="text-xs text-muted mb-4">Verify the 4-digit code provided by the customer to proceed.</p>
+            <input 
+              type="text" 
+              maxLength={4}
+              placeholder="0000"
+              value={otpVal}
+              onChange={e => setOtpVal(e.target.value)}
+              className="w-full text-center tracking-widest text-2xl font-black bg-zinc-50 border border-zinc-300 rounded-xl py-3.5 focus:outline-none focus:ring-2 focus:ring-black mb-4 font-mono text-primary"
+            />
+            <div className="flex gap-3">
+              <button onClick={() => setShowOtpModal(false)} className="flex-1 bg-surface hover:bg-border font-bold py-2.5 rounded-xl text-sm transition-colors">Cancel</button>
+              <button onClick={handleVerifyOtp} className="flex-1 bg-black text-white font-bold py-2.5 rounded-xl text-sm hover:bg-zinc-800 shadow-md">Verify & Proceed</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
