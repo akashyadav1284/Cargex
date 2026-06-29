@@ -242,7 +242,7 @@ const getActiveRequest = async (req, res) => {
       const driverVehicleType = driver.vehicleDetails?.type || driver.vehicleDetails?.name;
       const query = { status: 'requested' };
       if (driverVehicleType) {
-        query.vehicleType = driverVehicleType;
+        query.vehicleType = { $regex: new RegExp(`^${driverVehicleType}$`, 'i') };
       }
       const pendingBooking = await Booking.findOne(query).lean();
 

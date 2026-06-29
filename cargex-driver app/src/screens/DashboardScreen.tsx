@@ -76,12 +76,21 @@ export default function DashboardScreen({ navigation }: any) {
       fetchDriverData();
     });
 
-    socket.on('new_ride_request', (data: any) => {
-      fetchDriverData();
+    socket.on('new_ride_request', (booking: any) => {
+      console.log('[Socket] Incoming ride request directly:', booking._id);
+      setActiveBooking(booking);
+      setRideStatus('incoming');
     });
 
     socket.on('ride_cancelled', (data: any) => {
-      fetchDriverData();
+      console.log('[Socket] Ride cancelled directly:', data.bookingId);
+      setActiveBooking((prev: any) => {
+        if (prev && prev._id === data.bookingId) {
+          setRideStatus('idle');
+          return null;
+        }
+        return prev;
+      });
     });
 
     return () => {

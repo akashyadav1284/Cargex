@@ -224,43 +224,24 @@ export default function LiveTrackingScreen({ route, navigation }: any) {
       {/* Bottom Info Sheet */}
       <View style={styles.bottomCard}>
         {booking.driverId ? (
-          <View>
-            {/* Driver Profile */}
-            <View style={styles.driverRow}>
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>
-                  {booking.driverId.fullName?.charAt(0) || 'D'}
-                </Text>
-              </View>
-              <View style={{ flex: 1, marginLeft: 12 }}>
-                <Text style={styles.driverName}>{booking.driverId.fullName}</Text>
-                <Text style={styles.vehicleName}>
-                  {booking.vehicleType} | {booking.driverId.phone}
-                </Text>
-              </View>
-              <TouchableOpacity
-                style={styles.callBtn}
-                onPress={() => Linking.openURL(`tel:${booking.driverId.phone}`)}
-              >
-                <Phone size={18} color={COLORS.white} />
-              </TouchableOpacity>
+          <View style={styles.driverRow}>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>
+                {booking.driverId.fullName?.charAt(0) || 'D'}
+              </Text>
             </View>
-
-            {/* OTP panel */}
-            <View style={styles.otpRow}>
-              <View style={styles.otpBox}>
-                <Text style={styles.otpLabel}>PICKUP OTP</Text>
-                <Text style={styles.otpVal}>{pickupOtp}</Text>
-              </View>
-              <View style={[styles.otpBox, { borderLeftWidth: 1, borderLeftColor: COLORS.border }]}>
-                <Text style={styles.otpLabel}>DROP OTP</Text>
-                <Text style={styles.otpVal}>{dropOtp}</Text>
-              </View>
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text style={styles.driverName}>{booking.driverId.fullName}</Text>
+              <Text style={styles.vehicleName}>
+                {booking.vehicleType} | {booking.driverId.phone}
+              </Text>
             </View>
-
-            <Text style={styles.otpHint}>
-              Share OTP codes with your driver at pickup and drop locations to verify cargo security.
-            </Text>
+            <TouchableOpacity
+              style={styles.callBtn}
+              onPress={() => Linking.openURL(`tel:${booking.driverId.phone}`)}
+            >
+              <Phone size={18} color={COLORS.white} />
+            </TouchableOpacity>
           </View>
         ) : (
           <View style={styles.searchingRow}>
@@ -268,6 +249,22 @@ export default function LiveTrackingScreen({ route, navigation }: any) {
             <Text style={styles.searchingText}>Looking for a driver matching your vehicle requirements...</Text>
           </View>
         )}
+
+        {/* OTP panel */}
+        <View style={styles.otpRow}>
+          <View style={styles.otpBox}>
+            <Text style={styles.otpLabel}>PICKUP OTP</Text>
+            <Text style={styles.otpVal}>{pickupOtp}</Text>
+          </View>
+          <View style={[styles.otpBox, { borderLeftWidth: 1, borderLeftColor: COLORS.border }]}>
+            <Text style={styles.otpLabel}>DROP OTP</Text>
+            <Text style={styles.otpVal}>{dropOtp}</Text>
+          </View>
+        </View>
+
+        <Text style={styles.otpHint}>
+          Share OTP codes with your driver at pickup and drop locations to verify cargo security.
+        </Text>
       </View>
     </View>
   );
