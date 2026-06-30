@@ -1,11 +1,35 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, SafeAreaView, ActivityIndicator, Image, RefreshControl } from 'react-native';
+import { 
+  StyleSheet, 
+  Text, 
+  View, 
+  ScrollView, 
+  TouchableOpacity, 
+  SafeAreaView, 
+  RefreshControl,
+  StatusBar
+} from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 import apiClient from '../api/apiClient';
-import { COLORS, SPACING, SHADOWS } from '../constants/theme';
-import { Truck, History, PhoneCall, MapPin, User, LogOut, ArrowRight } from 'lucide-react-native';
+import { COLORS, SPACING, BORDER_RADIUS, SHADOWS } from '../constants/theme';
+import { 
+  Truck, 
+  History, 
+  PhoneCall, 
+  MapPin, 
+  LogOut, 
+  ArrowRight, 
+  Search,
+  Bell,
+  ShieldCheck,
+  UserCheck
+} from 'lucide-react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSocket } from '../contexts/SocketContext';
+import Card from '../components/Card';
+import Avatar from '../components/Avatar';
+import Badge from '../components/Badge';
+import Loader from '../components/Loader';
 
 export default function HomeScreen({ navigation }: any) {
   const { user, logout } = useAuth();
@@ -18,7 +42,6 @@ export default function HomeScreen({ navigation }: any) {
     try {
       const response = await apiClient.get('/api/users/bookings');
       const bookings = response.data.bookings || response.data || [];
-      // Find the first booking with active status
       const active = bookings.find((b: any) => 
         ['requested', 'accepted', 'arrived', 'in_progress'].includes(b.status)
       );
@@ -41,7 +64,6 @@ export default function HomeScreen({ navigation }: any) {
     if (!socket) return;
 
     const handleStatusUpdate = (data: any) => {
-      // data: { bookingId, status, driver }
       if (activeBooking && activeBooking._id === data.bookingId) {
         setActiveBooking((prev: any) => {
           if (!prev) return null;
@@ -71,7 +93,7 @@ export default function HomeScreen({ navigation }: any) {
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case 'requested': return 'Searching for nearby drivers...';
+      case 'requested': return 'Searching for nearby transport partners...';
       case 'accepted': return 'Driver accepted your request';
       case 'arrived': return 'Driver has arrived at pickup';
       case 'in_progress': return 'Ride in progress';
@@ -81,133 +103,162 @@ export default function HomeScreen({ navigation }: any) {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <ScrollView
-        contentContainerStyle={styles.container}
-        refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} colors={[COLORS.accent]} />
-        }
-      >
-        {/* Header */}
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.welcome}>Hello, {user?.name || 'User'}</Text>
-            <Text style={styles.subwelcome}>Where would you like to ship today?</Text>
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
+      
+      {/* Premium Header */}
+      <View style={styles.header}>
+        <View style={styles.headerProfile}>
+          <Avatar name={user?.name || 'User'} size={46} showOnlineBadge={true} />
+          <View style={{ marginLeft: 12 }}>
+            <Text style={styles.welcomeText}>Hello,</Text>
+            <Text style={styles.userNameText}>{user?.name || 'Partner'}</Text>
           </View>
-          <TouchableOpacity style={styles.logoutButton} onPress={logout}>
-            <LogOut size={20} color={COLORS.muted} />
+        </View>
+        
+        <View style={styles.headerActions}>
+          <TouchableOpacity style={styles.iconBtn}>
+            <Bell size={20} color={COLORS.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.iconBtn, { marginLeft: 8 }]} onPress={logout}>
+            <LogOut size={20} color={COLORS.primary} />
           </TouchableOpacity>
         </View>
+      </View>
 
-        {/* Hero section */}
-        <View style={styles.heroCard}>
-          <View style={styles.heroTextContainer}>
-            <Text style={styles.heroTitle}>Go Anywhere{'\n'}with Cargex</Text>
-            <Text style={styles.heroDesc}>Reliable cargo matching, transparent fare breakdowns, and real-time tracking.</Text>
-            <TouchableOpacity 
-              style={styles.heroBtn}
-              onPress={() => navigation.navigate('BookingFlow')}
-            >
-              <Text style={styles.heroBtnText}>Book Truck Now</Text>
-              <ArrowRight size={16} color={COLORS.white} style={{ marginLeft: 4 }} />
-            </TouchableOpacity>
+      <ScrollView
+        contentContainerStyle={styles.scrollContainer}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} colors={[COLORS.secondary]} />
+        }
+      >
+        {/* Current Location Quick Card */}
+        <Card style={styles.locationCard} padding="small" variant="outlined">
+          <View style={styles.locationRow}>
+            <MapPin size={18} color={COLORS.secondary} />
+            <Text style={styles.locationText} numberOfLines={1}>
+              Current: New Delhi, NCR region, India
+            </Text>
           </View>
-          <Text style={styles.truckEmoji}>🚚</Text>
-        </View>
+        </Card>
+
+        {/* Hero Banner Section */}
+        <TouchableOpacity 
+          style={styles.heroBanner}
+          onPress={() => navigation.navigate('BookTab')}
+          activeOpacity={0.95}
+        >
+          <View style={styles.heroContent}>
+            <Text style={styles.heroTag}>FAST & RELIABLE</Text>
+            <Text style={styles.heroTitle}>Book Cargo{'\n'}in Minutes</Text>
+            <Text style={styles.heroDesc}>
+              Move anything anywhere with transparent pricing.
+            </Text>
+            
+            <View style={styles.ctaRow}>
+              <Text style={styles.ctaText}>Start Shipping</Text>
+              <ArrowRight size={16} color={COLORS.white} style={{ marginLeft: 6 }} />
+            </View>
+          </View>
+          <Text style={styles.heroEmoji}>🚛</Text>
+        </TouchableOpacity>
 
         {/* Active Booking Section */}
         {isLoading ? (
-          <ActivityIndicator color={COLORS.accent} style={{ marginVertical: SPACING.lg }} />
+          <Loader size="small" style={{ marginVertical: SPACING.md }} />
         ) : activeBooking ? (
-          <View style={styles.activeSection}>
-            <Text style={styles.sectionTitle}>Active Trip</Text>
-            <TouchableOpacity 
-              style={styles.activeCard}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Active Shipment</Text>
+            <Card 
               onPress={() => navigation.navigate('LiveTracking', { bookingId: activeBooking._id })}
-              activeOpacity={0.95}
+              style={styles.activeCard}
             >
               <View style={styles.activeHeader}>
-                <View style={styles.pulseContainer}>
-                  <View style={styles.pulse} />
-                  <Text style={styles.activeBadge}>{activeBooking.status.toUpperCase()}</Text>
-                </View>
+                <Badge label={activeBooking.status} status={activeBooking.status} />
                 <Text style={styles.activeTime}>
                   {new Date(activeBooking.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </Text>
               </View>
-              <Text style={styles.activeStatusText}>{getStatusText(activeBooking.status)}</Text>
+              <Text style={styles.activeStatusDesc}>{getStatusText(activeBooking.status)}</Text>
               
               <View style={styles.routeContainer}>
-                <View style={styles.locationRow}>
-                  <MapPin size={18} color={COLORS.accent} />
-                  <Text style={styles.locationText} numberOfLines={1}>
+                <View style={styles.routeRow}>
+                  <View style={styles.dotGreen} />
+                  <Text style={styles.routeText} numberOfLines={1}>
                     {activeBooking.pickupLocation.address}
                   </Text>
                 </View>
                 <View style={styles.routeLine} />
-                <View style={styles.locationRow}>
-                  <MapPin size={18} color={COLORS.red} />
-                  <Text style={styles.locationText} numberOfLines={1}>
+                <View style={styles.routeRow}>
+                  <View style={styles.dotRed} />
+                  <Text style={styles.routeText} numberOfLines={1}>
                     {activeBooking.dropLocation.address}
                   </Text>
                 </View>
               </View>
 
               <View style={styles.activeFooter}>
-                <Text style={styles.priceText}>
-                  Total Fare: ₹{activeBooking.pricing?.totalFare || activeBooking.price?.total || 0}
+                <Text style={styles.fareText}>
+                  Total Payout: <Text style={styles.fareVal}>₹{activeBooking.pricing?.totalFare || activeBooking.price?.total || 0}</Text>
                 </Text>
-                <Text style={styles.trackLink}>Track Live →</Text>
+                <Text style={styles.liveLink}>Track live order →</Text>
               </View>
-            </TouchableOpacity>
+            </Card>
           </View>
         ) : null}
 
-        {/* Quick Actions */}
+        {/* Quick Actions Grid */}
         <Text style={styles.sectionTitle}>Quick Actions</Text>
         <View style={styles.grid}>
           <TouchableOpacity 
-            style={styles.gridItem}
-            onPress={() => navigation.navigate('BookingFlow')}
-            activeOpacity={0.8}
+            style={styles.gridCard}
+            onPress={() => navigation.navigate('BookTab')}
+            activeOpacity={0.9}
           >
-            <View style={[styles.iconBg, { backgroundColor: '#ECFDF5' }]}>
-              <Truck size={24} color={COLORS.accent} />
+            <View style={[styles.gridIconBg, { backgroundColor: '#F0FDF4' }]}>
+              <Truck size={24} color={COLORS.secondary} />
             </View>
             <Text style={styles.gridTitle}>Book Truck</Text>
-            <Text style={styles.gridDesc}>Request cargo vehicle</Text>
+            <Text style={styles.gridDesc}>Request vehicles</Text>
           </TouchableOpacity>
 
           <TouchableOpacity 
-            style={styles.gridItem}
-            onPress={() => navigation.navigate('History')}
-            activeOpacity={0.8}
+            style={styles.gridCard}
+            onPress={() => navigation.navigate('HistoryTab')}
+            activeOpacity={0.9}
           >
-            <View style={[styles.iconBg, { backgroundColor: '#EFF6FF' }]}>
+            <View style={[styles.gridIconBg, { backgroundColor: '#EFF6FF' }]}>
               <History size={24} color={COLORS.blue} />
             </View>
-            <Text style={styles.gridTitle}>History</Text>
-            <Text style={styles.gridDesc}>View completed rides</Text>
+            <Text style={styles.gridTitle}>Shipments</Text>
+            <Text style={styles.gridDesc}>View history</Text>
           </TouchableOpacity>
 
           <TouchableOpacity 
-            style={styles.gridItem}
-            onPress={() => navigation.navigate('Support')}
-            activeOpacity={0.8}
+            style={styles.gridCard}
+            onPress={() => navigation.navigate('SupportTab')}
+            activeOpacity={0.9}
           >
-            <View style={[styles.iconBg, { backgroundColor: '#FFF7ED' }]}>
-              <PhoneCall size={24} color="#EA580C" />
+            <View style={[styles.gridIconBg, { backgroundColor: '#FFF7ED' }]}>
+              <PhoneCall size={24} color={COLORS.warning} />
             </View>
             <Text style={styles.gridTitle}>Support</Text>
-            <Text style={styles.gridDesc}>24/7 Helpline assistance</Text>
+            <Text style={styles.gridDesc}>Call helpline</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Safety Banner */}
-        <View style={styles.safetyBanner}>
-          <Text style={styles.safetyBadge}>SAFETY FIRST</Text>
-          <Text style={styles.safetyTitle}>Verified Drivers & Vehicles</Text>
-          <Text style={styles.safetyDesc}>Every transport partner goes through a rigorous onboarding process to ensure safety.</Text>
+        {/* Trust/Safety Banner */}
+        <View style={styles.safetyCard}>
+          <View style={styles.safetyBadgeRow}>
+            <ShieldCheck size={18} color={COLORS.secondary} />
+            <Text style={styles.safetyBadgeText}>SECURE LOGISTICS NETWORK</Text>
+          </View>
+          <Text style={styles.safetyTitle}>Verified Drivers & Partners</Text>
+          <Text style={styles.safetyDesc}>
+            Every driver partner is background checked and verified to ensure safety for your high-value cargo.
+          </Text>
         </View>
+
       </ScrollView>
     </SafeAreaView>
   );
@@ -218,225 +269,274 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
-  container: {
-    padding: SPACING.md,
-    paddingBottom: SPACING.xl,
-  },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: SPACING.sm,
-    marginBottom: SPACING.lg,
+    justifyContent: 'space-between',
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.md,
+    backgroundColor: COLORS.background,
   },
-  welcome: {
-    fontSize: 24,
-    fontWeight: '800',
+  headerProfile: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  welcomeText: {
+    fontSize: 13,
+    color: COLORS.textMuted,
+    fontWeight: '600',
+  },
+  userNameText: {
+    fontSize: 18,
+    fontWeight: '900',
     color: COLORS.primary,
+    letterSpacing: -0.5,
   },
-  subwelcome: {
-    fontSize: 14,
-    color: COLORS.muted,
-    marginTop: 2,
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  logoutButton: {
-    padding: SPACING.sm,
-    borderRadius: 8,
-    backgroundColor: COLORS.surface,
+  iconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: BORDER_RADIUS.round,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  heroCard: {
+  scrollContainer: {
+    paddingHorizontal: SPACING.lg,
+    paddingBottom: 110,
+  },
+  locationCard: {
+    marginBottom: SPACING.md,
+  },
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  locationText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.text,
+    marginLeft: 8,
+    flex: 1,
+  },
+  heroBanner: {
     backgroundColor: COLORS.primary,
-    borderRadius: 16,
+    borderRadius: BORDER_RADIUS.lg,
     padding: SPACING.lg,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: SPACING.xl,
+    marginBottom: SPACING.lg,
+    position: 'relative',
     overflow: 'hidden',
     ...SHADOWS.md,
   },
-  heroTextContainer: {
-    flex: 1,
+  heroContent: {
+    flex: 1.2,
+  },
+  heroTag: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: COLORS.secondary,
+    letterSpacing: 1.5,
+    marginBottom: 4,
   },
   heroTitle: {
+    fontSize: 26,
+    fontWeight: '900',
     color: COLORS.white,
-    fontSize: 24,
-    fontWeight: '800',
-    lineHeight: 30,
+    lineHeight: 32,
+    letterSpacing: -0.5,
   },
   heroDesc: {
-    color: '#D1D5DB',
     fontSize: 12,
-    marginTop: SPACING.sm,
-    marginBottom: SPACING.md,
+    color: '#9CA3AF',
+    marginTop: 6,
     lineHeight: 16,
+    fontWeight: '500',
   },
-  heroBtn: {
-    backgroundColor: COLORS.accent,
-    borderRadius: 8,
-    paddingVertical: 10,
-    paddingHorizontal: SPACING.md,
-    alignSelf: 'flex-start',
+  ctaRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: COLORS.secondary,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: BORDER_RADIUS.sm,
+    alignSelf: 'flex-start',
+    marginTop: SPACING.md,
   },
-  heroBtnText: {
+  ctaText: {
     color: COLORS.white,
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '700',
   },
-  truckEmoji: {
-    fontSize: 72,
-    marginRight: -10,
+  heroEmoji: {
+    fontSize: 80,
     opacity: 0.9,
+    position: 'absolute',
+    right: -10,
+    bottom: -10,
   },
-  activeSection: {
-    marginBottom: SPACING.xl,
+  section: {
+    marginVertical: SPACING.sm,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '800',
-    color: COLORS.foreground,
-    marginBottom: SPACING.md,
+    fontWeight: '900',
+    color: COLORS.primary,
+    letterSpacing: -0.5,
+    marginBottom: SPACING.sm,
+    marginTop: SPACING.sm,
   },
   activeCard: {
-    backgroundColor: COLORS.background,
-    borderRadius: 12,
-    borderWidth: 1,
+    backgroundColor: COLORS.white,
+    borderWidth: 1.5,
     borderColor: COLORS.border,
-    padding: SPACING.md,
-    ...SHADOWS.sm,
   },
   activeHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-  },
-  pulseContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  pulse: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: COLORS.accent,
-    marginRight: 6,
-  },
-  activeBadge: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: COLORS.accent,
+    marginBottom: SPACING.sm,
   },
   activeTime: {
     fontSize: 12,
-    color: COLORS.muted,
-  },
-  activeStatusText: {
-    fontSize: 16,
+    color: COLORS.textMuted,
     fontWeight: '700',
-    color: COLORS.foreground,
-    marginTop: SPACING.sm,
+  },
+  activeStatusDesc: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: COLORS.primary,
     marginBottom: SPACING.md,
   },
   routeContainer: {
-    borderLeftWidth: 2,
-    borderLeftColor: COLORS.border,
-    paddingLeft: SPACING.md,
-    marginLeft: 6,
-    marginVertical: SPACING.sm,
+    backgroundColor: '#F9FAFB',
+    borderRadius: BORDER_RADIUS.sm,
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
-  locationRow: {
+  routeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 4,
   },
-  locationText: {
-    fontSize: 14,
-    color: COLORS.foreground,
-    marginLeft: 8,
+  dotGreen: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: COLORS.secondary,
+  },
+  dotRed: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: COLORS.error,
+  },
+  routeText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginLeft: 10,
     flex: 1,
   },
   routeLine: {
-    height: 12,
+    width: 1.5,
+    height: 18,
+    backgroundColor: COLORS.border,
+    marginLeft: 3,
+    marginVertical: 2,
   },
   activeFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-    marginTop: SPACING.md,
+    borderColor: COLORS.border,
     paddingTop: SPACING.md,
   },
-  priceText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: COLORS.primary,
+  fareText: {
+    fontSize: 13,
+    color: COLORS.textMuted,
+    fontWeight: '600',
   },
-  trackLink: {
-    fontSize: 14,
+  fareVal: {
+    color: COLORS.primary,
+    fontWeight: '900',
+  },
+  liveLink: {
+    fontSize: 13,
     fontWeight: '700',
-    color: COLORS.accent,
+    color: COLORS.secondary,
   },
   grid: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: SPACING.xl,
+    marginBottom: SPACING.lg,
   },
-  gridItem: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-    borderWidth: 1,
+  gridCard: {
+    width: '31%',
+    backgroundColor: '#F8F9FA',
+    borderWidth: 1.5,
     borderColor: COLORS.border,
-    borderRadius: 12,
+    borderRadius: BORDER_RADIUS.md,
     padding: SPACING.md,
     alignItems: 'center',
-    marginHorizontal: 4,
-    ...SHADOWS.sm,
   },
-  iconBg: {
+  gridIconBg: {
     width: 48,
     height: 48,
-    borderRadius: 24,
+    borderRadius: BORDER_RADIUS.round,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: SPACING.sm,
+    marginBottom: 8,
   },
   gridTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: COLORS.foreground,
+    fontSize: 13,
+    fontWeight: '800',
+    color: COLORS.primary,
   },
   gridDesc: {
     fontSize: 10,
-    color: COLORS.muted,
+    color: COLORS.textMuted,
     marginTop: 2,
+    fontWeight: '500',
     textAlign: 'center',
   },
-  safetyBanner: {
-    backgroundColor: COLORS.surface,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 12,
-    padding: SPACING.md,
+  safetyCard: {
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1.5,
+    borderColor: '#DCFCE7',
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.lg,
+    marginTop: SPACING.xs,
   },
-  safetyBadge: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: COLORS.accent,
+  safetyBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  safetyBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: COLORS.secondary,
+    marginLeft: 6,
     letterSpacing: 1,
   },
   safetyTitle: {
     fontSize: 16,
-    fontWeight: '800',
-    color: COLORS.foreground,
-    marginTop: 4,
+    fontWeight: '900',
+    color: COLORS.primary,
   },
   safetyDesc: {
     fontSize: 12,
-    color: COLORS.muted,
-    marginTop: SPACING.xs,
-    lineHeight: 16,
+    color: COLORS.textMuted,
+    marginTop: 4,
+    lineHeight: 18,
+    fontWeight: '500',
   },
 });

@@ -1,10 +1,22 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ActivityIndicator, Image, Linking, Alert } from 'react-native';
+import { 
+  StyleSheet, 
+  Text, 
+  View, 
+  TouchableOpacity, 
+  ActivityIndicator, 
+  Linking, 
+  Alert,
+  Platform,
+  StatusBar
+} from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useSocket } from '../contexts/SocketContext';
 import apiClient from '../api/apiClient';
-import { COLORS, SPACING, SHADOWS } from '../constants/theme';
-import { Phone, Navigation, Clock, ShieldCheck, ArrowLeft } from 'lucide-react-native';
+import { COLORS, SPACING, BORDER_RADIUS, SHADOWS } from '../constants/theme';
+import { Phone, Navigation, Clock, ShieldCheck, ArrowLeft, Key } from 'lucide-react-native';
+import Loader from '../components/Loader';
+import Badge from '../components/Badge';
 
 export default function LiveTrackingScreen({ route, navigation }: any) {
   const { bookingId } = route.params;
@@ -34,7 +46,6 @@ export default function LiveTrackingScreen({ route, navigation }: any) {
       const match = list.find((b: any) => b._id === bookingId);
       if (match) {
         setBooking(match);
-        // Fetch routing coordinates via OSRM
         if (match.pickupLocation && match.dropLocation) {
           fetchRouteLine(match.pickupLocation, match.dropLocation);
         }
@@ -68,19 +79,15 @@ export default function LiveTrackingScreen({ route, navigation }: any) {
 
     if (!socket) return;
 
-    // Join room for this booking
     socket.emit('join_booking_room', bookingId);
 
-    // Listen for live location updates from the driver
     socket.on('live_location', (data: any) => {
-      // data: { lat, lng, driverId }
       setDriverLoc({
         latitude: data.lat,
         longitude: data.lng
       });
     });
 
-    // Listen for status changes (e.g. driver arrives, starts trip, completes)
     socket.on('ride_status_update', (data: any) => {
       if (data.bookingId === bookingId) {
         setBooking((prev: any) => {
@@ -114,7 +121,7 @@ export default function LiveTrackingScreen({ route, navigation }: any) {
   if (isLoading || !booking || !hasValidCoords) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color={COLORS.accent} />
+        <Loader />
         <Text style={styles.loadingText}>Connecting to live dispatch...</Text>
       </View>
     );
@@ -170,7 +177,7 @@ export default function LiveTrackingScreen({ route, navigation }: any) {
         var routeCoords = ${JSON.stringify(routeCoords)};
         if (routeCoords && routeCoords.length > 0) {
           var latlngs = routeCoords.map(function(c) { return [c.latitude, c.longitude]; });
-          L.polyline(latlngs, { color: '#FF7E06', weight: 5 }).addTo(map);
+          L.polyline(latlngs, { color: '#22C55E', weight: 5 }).addTo(map);
           var bounds = L.latLngBounds(latlngs);
           map.fitBounds(bounds, { padding: [30, 30] });
         }
@@ -197,10 +204,13 @@ export default function LiveTrackingScreen({ route, navigation }: any) {
 
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+      
       {/* Floating Back Button */}
       <TouchableOpacity 
         style={styles.backButton} 
         onPress={() => navigation.navigate('MainTabs')}
+        activeOpacity={0.8}
       >
         <ArrowLeft size={20} color={COLORS.primary} />
       </TouchableOpacity>
@@ -213,11 +223,11 @@ export default function LiveTrackingScreen({ route, navigation }: any) {
         originWhitelist={['*']}
       />
 
-      {/* Floating Status card */}
+      {/* Floating Status Badge Overlay */}
       <View style={styles.statusFloat}>
-        <Clock size={16} color={COLORS.accent} />
+        <Clock size={16} color={COLORS.secondary} style={{ marginRight: 6 }} />
         <Text style={styles.statusFloatText}>
-          Status: {(booking.status || 'requested').toUpperCase()}
+          STATUS: {(booking.status || 'requested').toUpperCase()}
         </Text>
       </View>
 
@@ -233,31 +243,38 @@ export default function LiveTrackingScreen({ route, navigation }: any) {
             <View style={{ flex: 1, marginLeft: 12 }}>
               <Text style={styles.driverName}>{booking.driverId.fullName}</Text>
               <Text style={styles.vehicleName}>
-                {booking.vehicleType} | {booking.driverId.phone}
+                {booking.vehicleType} • {booking.driverId.phone}
               </Text>
             </View>
             <TouchableOpacity
               style={styles.callBtn}
               onPress={() => Linking.openURL(`tel:${booking.driverId.phone}`)}
+              activeOpacity={0.7}
             >
               <Phone size={18} color={COLORS.white} />
             </TouchableOpacity>
           </View>
         ) : (
           <View style={styles.searchingRow}>
-            <ActivityIndicator size="small" color={COLORS.accent} style={{ marginRight: 10 }} />
-            <Text style={styles.searchingText}>Looking for a driver matching your vehicle requirements...</Text>
+            <ActivityIndicator size="small" color={COLORS.secondary} style={{ marginRight: 10 }} />
+            <Text style={styles.searchingText}>Looking for a transport partner matching requirements...</Text>
           </View>
         )}
 
-        {/* OTP panel */}
+        {/* OTP panel (Always Visible) */}
         <View style={styles.otpRow}>
           <View style={styles.otpBox}>
-            <Text style={styles.otpLabel}>PICKUP OTP</Text>
+            <View style={styles.otpLabelRow}>
+              <Key size={12} color={COLORS.textMuted} style={{ marginRight: 4 }} />
+              <Text style={styles.otpLabel}>PICKUP OTP</Text>
+            </View>
             <Text style={styles.otpVal}>{pickupOtp}</Text>
           </View>
           <View style={[styles.otpBox, { borderLeftWidth: 1, borderLeftColor: COLORS.border }]}>
-            <Text style={styles.otpLabel}>DROP OTP</Text>
+            <View style={styles.otpLabelRow}>
+              <Key size={12} color={COLORS.textMuted} style={{ marginRight: 4 }} />
+              <Text style={styles.otpLabel}>DROP OTP</Text>
+            </View>
             <Text style={styles.otpVal}>{dropOtp}</Text>
           </View>
         </View>
@@ -273,6 +290,7 @@ export default function LiveTrackingScreen({ route, navigation }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: COLORS.background,
   },
   center: {
     flex: 1,
@@ -282,63 +300,57 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 10,
-    color: COLORS.muted,
+    color: COLORS.textMuted,
+    fontSize: 14,
+    fontWeight: '600',
   },
   map: {
     flex: 1,
   },
-  driverPin: {
-    backgroundColor: COLORS.white,
-    padding: 6,
-    borderRadius: 24,
-    borderWidth: 2,
-    borderColor: COLORS.blue,
-    ...SHADOWS.md,
-  },
-  statusFloat: {
-    position: 'absolute',
-    top: 50,
-    left: 72,
-    right: 20,
-    backgroundColor: COLORS.background,
-    borderRadius: 20,
-    paddingVertical: 10,
-    paddingHorizontal: SPACING.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    ...SHADOWS.md,
-  },
-  statusFloatText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: COLORS.foreground,
-    marginLeft: 6,
-  },
   backButton: {
     position: 'absolute',
-    top: 50,
-    left: 20,
+    top: Platform.OS === 'ios' ? 60 : 44,
+    left: SPACING.lg,
+    zIndex: 100,
+    width: 44,
+    height: 44,
+    borderRadius: BORDER_RADIUS.round,
     backgroundColor: COLORS.white,
-    borderRadius: 20,
-    width: 40,
-    height: 40,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: COLORS.border,
     ...SHADOWS.md,
-    zIndex: 999,
+  },
+  statusFloat: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 60 : 44,
+    right: SPACING.lg,
+    zIndex: 100,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.white,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+    borderRadius: BORDER_RADIUS.sm,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    ...SHADOWS.md,
+  },
+  statusFloatText: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: COLORS.primary,
+    letterSpacing: 0.5,
   },
   bottomCard: {
-    backgroundColor: COLORS.background,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    backgroundColor: COLORS.white,
+    borderTopLeftRadius: BORDER_RADIUS.xl,
+    borderTopRightRadius: BORDER_RADIUS.xl,
     padding: SPACING.lg,
-    borderWidth: 1,
+    borderTopWidth: 1.5,
     borderColor: COLORS.border,
-    ...SHADOWS.md,
+    ...SHADOWS.lg,
   },
   driverRow: {
     flexDirection: 'row',
@@ -346,75 +358,93 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.md,
   },
   avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: COLORS.primary,
+    width: 44,
+    height: 44,
+    borderRadius: BORDER_RADIUS.round,
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarText: {
-    color: COLORS.white,
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: '900',
+    color: COLORS.primary,
   },
   driverName: {
     fontSize: 16,
-    fontWeight: '800',
-    color: COLORS.foreground,
+    fontWeight: '900',
+    color: COLORS.primary,
   },
   vehicleName: {
     fontSize: 12,
-    color: COLORS.muted,
+    color: COLORS.textMuted,
+    fontWeight: '600',
     marginTop: 2,
   },
   callBtn: {
-    backgroundColor: COLORS.accent,
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: BORDER_RADIUS.round,
+    backgroundColor: COLORS.secondary,
     alignItems: 'center',
     justifyContent: 'center',
+    ...SHADOWS.sm,
+  },
+  searchingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+    backgroundColor: '#F9FAFB',
+    padding: SPACING.md,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+  },
+  searchingText: {
+    fontSize: 13,
+    color: COLORS.primary,
+    fontWeight: '700',
+    flex: 1,
   },
   otpRow: {
     flexDirection: 'row',
-    backgroundColor: COLORS.surface,
-    borderRadius: 12,
-    padding: SPACING.md,
-    marginTop: SPACING.xs,
+    backgroundColor: '#F9FAFB',
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+    marginBottom: SPACING.md,
   },
   otpBox: {
     flex: 1,
+    padding: SPACING.md,
     alignItems: 'center',
+  },
+  otpLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
   },
   otpLabel: {
     fontSize: 10,
-    color: COLORS.muted,
-    fontWeight: '700',
+    fontWeight: '800',
+    color: COLORS.textMuted,
+    letterSpacing: 0.5,
   },
   otpVal: {
     fontSize: 22,
     fontWeight: '900',
     color: COLORS.primary,
-    marginTop: 4,
-    letterSpacing: 2,
+    letterSpacing: 1,
+    fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace',
   },
   otpHint: {
     fontSize: 11,
-    color: COLORS.muted,
+    color: COLORS.textMuted,
     textAlign: 'center',
-    marginTop: SPACING.md,
-    lineHeight: 15,
-  },
-  searchingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: SPACING.sm,
-  },
-  searchingText: {
-    fontSize: 14,
-    color: COLORS.muted,
-    flex: 1,
+    lineHeight: 16,
     fontWeight: '600',
+    paddingHorizontal: SPACING.xs,
   },
 });

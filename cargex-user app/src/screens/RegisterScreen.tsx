@@ -1,7 +1,18 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, TextInput, View, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, SafeAreaView } from 'react-native';
+import { 
+  StyleSheet, 
+  Text, 
+  View, 
+  KeyboardAvoidingView, 
+  Platform, 
+  ScrollView, 
+  SafeAreaView 
+} from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
-import { COLORS, SPACING, SHADOWS } from '../constants/theme';
+import { COLORS, SPACING, BORDER_RADIUS } from '../constants/theme';
+import { User, Mail, Phone, Lock, UserPlus } from 'lucide-react-native';
+import Button from '../components/Button';
+import Input from '../components/Input';
 
 export default function RegisterScreen({ navigation }: any) {
   const { register } = useAuth();
@@ -34,78 +45,84 @@ export default function RegisterScreen({ navigation }: any) {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
       >
-        <ScrollView contentContainerStyle={styles.container}>
-          <View style={styles.header}>
-            <Text style={styles.logo}>Cargex</Text>
-            <Text style={styles.subtitle}>Create an account to start shipping and tracking your cargo.</Text>
+        <ScrollView 
+          contentContainerStyle={styles.container}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Brand Header */}
+          <View style={styles.brandContainer}>
+            <View style={styles.logoBadge}>
+              <Text style={styles.logoBadgeText}>C</Text>
+            </View>
+            <Text style={styles.logoText}>Cargex</Text>
+            <Text style={styles.subtitle}>Moving India Smarter</Text>
           </View>
 
-          {errorMsg ? (
-            <View style={styles.errorContainer}>
-              <Text style={styles.errorText}>{errorMsg}</Text>
-            </View>
-          ) : null}
+          {/* Form container */}
+          <View style={styles.formContainer}>
+            <Text style={styles.formTitle}>Create Account</Text>
+            <Text style={styles.formSubtitle}>Join Cargex to start shipping and tracking your cargo.</Text>
 
-          <View style={styles.form}>
-            <Text style={styles.label}>Full Name</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. John Doe"
-              placeholderTextColor={COLORS.muted}
+            {errorMsg ? (
+              <View style={styles.errorCard}>
+                <Text style={styles.errorText}>{errorMsg}</Text>
+              </View>
+            ) : null}
+
+            <Input
               value={name}
               onChangeText={setName}
+              placeholder="e.g. John Doe"
+              label="Full Name"
+              icon={<User size={20} color={COLORS.textMuted} />}
             />
 
-            <Text style={styles.label}>Email Address</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. john@example.com"
-              placeholderTextColor={COLORS.muted}
+            <Input
               value={email}
               onChangeText={setEmail}
-              autoCapitalize="none"
+              placeholder="e.g. john@example.com"
+              label="Email Address"
               keyboardType="email-address"
+              icon={<Mail size={20} color={COLORS.textMuted} />}
             />
 
-            <Text style={styles.label}>Phone Number</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. +91 9467658854"
-              placeholderTextColor={COLORS.muted}
+            <Input
               value={phone}
               onChangeText={setPhone}
+              placeholder="e.g. +91 9467658854"
+              label="Phone Number"
               keyboardType="phone-pad"
+              icon={<Phone size={20} color={COLORS.textMuted} />}
             />
 
-            <Text style={styles.label}>Password</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Choose a password"
-              placeholderTextColor={COLORS.muted}
+            <Input
               value={password}
               onChangeText={setPassword}
+              placeholder="Choose a password"
+              label="Password"
               secureTextEntry
-              autoCapitalize="none"
+              icon={<Lock size={20} color={COLORS.textMuted} />}
             />
 
-            <TouchableOpacity
-              style={styles.button}
+            <Button
+              label="Sign Up"
               onPress={handleRegister}
-              disabled={isLoading}
-              activeOpacity={0.8}
-            >
-              {isLoading ? (
-                <ActivityIndicator color={COLORS.white} />
-              ) : (
-                <Text style={styles.buttonText}>Sign Up</Text>
-              )}
-            </TouchableOpacity>
+              isLoading={isLoading}
+              icon={<UserPlus size={20} color={COLORS.white} />}
+              style={styles.actionBtn}
+            />
 
+            {/* Footer Back to Login Link */}
             <View style={styles.footer}>
               <Text style={styles.footerText}>Already have an account? </Text>
-              <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-                <Text style={styles.footerLink}>Log In</Text>
-              </TouchableOpacity>
+              <Button
+                label="Log In"
+                onPress={() => navigation.navigate('Login')}
+                variant="ghost"
+                style={styles.loginLinkBtn}
+                labelStyle={styles.loginLinkBtnText}
+              />
             </View>
           </View>
         </ScrollView>
@@ -122,83 +139,93 @@ const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
     paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.xl,
+    paddingBottom: SPACING.xl,
     justifyContent: 'center',
   },
-  header: {
-    marginBottom: SPACING.lg,
+  brandContainer: {
+    alignItems: 'center',
+    marginTop: SPACING.lg,
+    marginBottom: SPACING.md,
   },
-  logo: {
-    fontSize: 40,
+  logoBadge: {
+    width: 52,
+    height: 52,
+    borderRadius: BORDER_RADIUS.md,
+    backgroundColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: SPACING.xs,
+  },
+  logoBadgeText: {
+    fontSize: 26,
+    fontWeight: '900',
+    color: COLORS.secondary,
+  },
+  logoText: {
+    fontSize: 28,
     fontWeight: '900',
     color: COLORS.primary,
     letterSpacing: -1,
   },
   subtitle: {
-    fontSize: 16,
-    color: COLORS.muted,
-    marginTop: SPACING.xs,
-    lineHeight: 22,
+    fontSize: 10,
+    fontWeight: '800',
+    color: COLORS.secondary,
+    textTransform: 'uppercase',
+    letterSpacing: 2,
+    marginTop: 2,
   },
-  errorContainer: {
-    backgroundColor: '#FEF2F2',
-    borderWidth: 1,
-    borderColor: '#FCA5A5',
-    padding: SPACING.md,
-    borderRadius: 8,
-    marginBottom: SPACING.lg,
+  formContainer: {
+    flex: 1,
   },
-  errorText: {
-    color: COLORS.red,
-    fontSize: 14,
+  formTitle: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: COLORS.primary,
+    letterSpacing: -0.5,
+  },
+  formSubtitle: {
+    fontSize: 13,
+    color: COLORS.textMuted,
+    marginTop: 2,
+    marginBottom: SPACING.md,
     fontWeight: '500',
   },
-  form: {
-    marginTop: SPACING.sm,
+  errorCard: {
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1.5,
+    borderColor: '#FCA5A5',
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md,
+    marginVertical: SPACING.sm,
   },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.foreground,
-    marginBottom: SPACING.xs,
-    marginTop: SPACING.sm,
+  errorText: {
+    color: COLORS.error,
+    fontSize: 13,
+    fontWeight: '700',
   },
-  input: {
-    backgroundColor: COLORS.inputBg,
-    borderRadius: 8,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: COLORS.foreground,
-    borderWidth: 1,
-    borderColor: 'transparent',
-  },
-  button: {
-    backgroundColor: COLORS.primary,
-    borderRadius: 8,
-    paddingVertical: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: SPACING.lg,
-    ...SHADOWS.md,
-  },
-  buttonText: {
-    color: COLORS.white,
-    fontSize: 16,
-    fontWeight: '600',
+  actionBtn: {
+    marginTop: SPACING.md,
   },
   footer: {
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'center',
     marginTop: SPACING.lg,
   },
   footerText: {
-    color: COLORS.muted,
+    color: COLORS.textMuted,
     fontSize: 14,
+    fontWeight: '500',
   },
-  footerLink: {
-    color: COLORS.accent,
+  loginLinkBtn: {
+    height: 'auto',
+    paddingHorizontal: 0,
+    borderWidth: 0,
+  },
+  loginLinkBtnText: {
+    color: COLORS.secondary,
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
   },
 });

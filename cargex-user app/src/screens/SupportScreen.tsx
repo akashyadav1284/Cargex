@@ -1,9 +1,21 @@
 import React from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Linking, SafeAreaView, ScrollView } from 'react-native';
-import { COLORS, SPACING, SHADOWS } from '../constants/theme';
-import { Mail, Phone, ShieldAlert, FileText, ChevronRight } from 'lucide-react-native';
+import { 
+  StyleSheet, 
+  Text, 
+  View, 
+  TouchableOpacity, 
+  Linking, 
+  SafeAreaView, 
+  ScrollView,
+  StatusBar
+} from 'react-native';
+import { COLORS, SPACING, BORDER_RADIUS } from '../constants/theme';
+import { Mail, Phone, ShieldAlert, FileText, ChevronRight, MessageSquareCode } from 'lucide-react-native';
+import Card from '../components/Card';
+import { useNavigation } from '@react-navigation/native';
 
 export default function SupportScreen() {
+  const navigation = useNavigation<any>();
   const HELPLINE_PHONE = '+919467658854';
   const HELPLINE_EMAIL = 'akashyadav9992462520@gmail.com';
 
@@ -15,71 +27,93 @@ export default function SupportScreen() {
     Linking.openURL(`mailto:${HELPLINE_EMAIL}?subject=Cargex Mobile Support Request`);
   };
 
+  const handleWhatsApp = () => {
+    Linking.openURL(`https://wa.me/${HELPLINE_PHONE.replace('+', '')}?text=Hi Cargex support team, I need help with my dispatch.`);
+  };
+
   return (
     <SafeAreaView style={styles.safe}>
-      <ScrollView contentContainerStyle={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
+      <ScrollView 
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.header}>
-          <Text style={styles.title}>Cargex Support</Text>
+          <Text style={styles.title}>Customer Support</Text>
           <Text style={styles.subtitle}>We're here to assist you with your logistics operations 24/7.</Text>
         </View>
 
-        {/* Action Options */}
-        <View style={styles.card}>
-          <Text style={styles.cardHeader}>Direct Channels</Text>
-          
-          <TouchableOpacity style={styles.itemRow} onPress={handleCall}>
-            <View style={[styles.iconBg, { backgroundColor: '#ECFDF5' }]}>
-              <Phone size={20} color={COLORS.accent} />
+        {/* Direct Channels */}
+        <Text style={styles.sectionHeader}>Direct Channels</Text>
+        <Card variant="outlined" style={styles.supportCard} padding="none">
+          {/* Call Helpline */}
+          <TouchableOpacity style={styles.itemRow} onPress={handleCall} activeOpacity={0.7}>
+            <View style={[styles.iconBg, { backgroundColor: '#F0FDF4' }]}>
+              <Phone size={20} color={COLORS.secondary} />
             </View>
-            <View style={{ flex: 1, marginLeft: 12 }}>
+            <View style={styles.textCol}>
               <Text style={styles.itemTitle}>Call Customer Helpline</Text>
               <Text style={styles.itemVal}>+91 9467658854</Text>
             </View>
-            <ChevronRight size={18} color={COLORS.muted} />
+            <ChevronRight size={18} color={COLORS.textMuted} />
           </TouchableOpacity>
 
           <View style={styles.divider} />
 
-          <TouchableOpacity style={styles.itemRow} onPress={handleEmail}>
+          {/* WhatsApp Support */}
+          <TouchableOpacity style={styles.itemRow} onPress={handleWhatsApp} activeOpacity={0.7}>
+            <View style={[styles.iconBg, { backgroundColor: '#ECFDF5' }]}>
+              <MessageSquareCode size={20} color="#10B981" />
+            </View>
+            <View style={styles.textCol}>
+              <Text style={styles.itemTitle}>WhatsApp Support</Text>
+              <Text style={styles.itemVal}>Chat instantly with our logistics agents</Text>
+            </View>
+            <ChevronRight size={18} color={COLORS.textMuted} />
+          </TouchableOpacity>
+
+          <View style={styles.divider} />
+
+          {/* Email Support */}
+          <TouchableOpacity style={styles.itemRow} onPress={handleEmail} activeOpacity={0.7}>
             <View style={[styles.iconBg, { backgroundColor: '#EFF6FF' }]}>
               <Mail size={20} color={COLORS.blue} />
             </View>
-            <View style={{ flex: 1, marginLeft: 12 }}>
+            <View style={styles.textCol}>
               <Text style={styles.itemTitle}>Send an Email</Text>
               <Text style={styles.itemVal}>akashyadav9992462520@gmail.com</Text>
             </View>
-            <ChevronRight size={18} color={COLORS.muted} />
+            <ChevronRight size={18} color={COLORS.textMuted} />
           </TouchableOpacity>
-        </View>
+        </Card>
 
-        {/* FAQs info placeholder */}
-        <View style={styles.card}>
-          <Text style={styles.cardHeader}>Legal and Policies</Text>
-          
-          <TouchableOpacity style={styles.itemRow} onPress={() => Linking.openURL('https://cargex.vercel.app/terms')}>
-            <View style={[styles.iconBg, { backgroundColor: COLORS.surface }]}>
+        {/* Legal and Policies */}
+        <Text style={styles.sectionHeader}>Legal and Policies</Text>
+        <Card variant="outlined" style={styles.supportCard} padding="none">
+          <TouchableOpacity style={styles.itemRow} onPress={() => navigation.navigate('Terms')} activeOpacity={0.7}>
+            <View style={[styles.iconBg, { backgroundColor: '#F9FAFB' }]}>
               <FileText size={20} color={COLORS.primary} />
             </View>
-            <View style={{ flex: 1, marginLeft: 12 }}>
+            <View style={styles.textCol}>
               <Text style={styles.itemTitle}>Terms & Conditions</Text>
               <Text style={styles.itemVal}>Review service rules and usage guidelines</Text>
             </View>
-            <ChevronRight size={18} color={COLORS.muted} />
+            <ChevronRight size={18} color={COLORS.textMuted} />
           </TouchableOpacity>
 
           <View style={styles.divider} />
 
-          <TouchableOpacity style={styles.itemRow} onPress={() => Linking.openURL('https://cargex.vercel.app/privacy')}>
-            <View style={[styles.iconBg, { backgroundColor: COLORS.surface }]}>
+          <TouchableOpacity style={styles.itemRow} onPress={() => navigation.navigate('Privacy')} activeOpacity={0.7}>
+            <View style={[styles.iconBg, { backgroundColor: '#F9FAFB' }]}>
               <ShieldAlert size={20} color={COLORS.primary} />
             </View>
-            <View style={{ flex: 1, marginLeft: 12 }}>
+            <View style={styles.textCol}>
               <Text style={styles.itemTitle}>Privacy Policy</Text>
               <Text style={styles.itemVal}>Learn how we protect and manage your data</Text>
             </View>
-            <ChevronRight size={18} color={COLORS.muted} />
+            <ChevronRight size={18} color={COLORS.textMuted} />
           </TouchableOpacity>
-        </View>
+        </Card>
 
         <Text style={styles.footerNote}>© 2026 Cargex Technologies Inc. All rights reserved.</Text>
       </ScrollView>
@@ -93,69 +127,75 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   container: {
-    padding: SPACING.md,
+    paddingHorizontal: SPACING.lg,
+    paddingBottom: 110,
   },
   header: {
     marginVertical: SPACING.md,
   },
   title: {
-    fontSize: 26,
-    fontWeight: '800',
+    fontSize: 24,
+    fontWeight: '900',
     color: COLORS.primary,
+    letterSpacing: -0.5,
   },
   subtitle: {
     fontSize: 14,
-    color: COLORS.muted,
+    color: COLORS.textMuted,
     marginTop: 4,
     lineHeight: 20,
+    fontWeight: '500',
   },
-  card: {
-    backgroundColor: COLORS.background,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 12,
-    padding: SPACING.md,
-    marginTop: SPACING.md,
-    ...SHADOWS.sm,
-  },
-  cardHeader: {
+  sectionHeader: {
     fontSize: 16,
-    fontWeight: '800',
+    fontWeight: '900',
     color: COLORS.primary,
+    letterSpacing: -0.2,
+    marginTop: SPACING.md,
+    marginBottom: SPACING.sm,
+  },
+  supportCard: {
+    backgroundColor: COLORS.card,
     marginBottom: SPACING.md,
   },
   itemRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: SPACING.xs,
+    padding: SPACING.md,
   },
   iconBg: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 42,
+    height: 42,
+    borderRadius: BORDER_RADIUS.round,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  textCol: {
+    flex: 1,
+    marginLeft: 12,
+  },
   itemTitle: {
     fontSize: 14,
-    fontWeight: '700',
-    color: COLORS.foreground,
+    fontWeight: '800',
+    color: COLORS.primary,
   },
   itemVal: {
     fontSize: 12,
-    color: COLORS.muted,
+    color: COLORS.textMuted,
     marginTop: 2,
+    fontWeight: '500',
   },
   divider: {
     height: 1,
     backgroundColor: COLORS.border,
-    marginVertical: SPACING.md,
+    marginLeft: 66,
   },
   footerNote: {
     textAlign: 'center',
-    fontSize: 12,
-    color: COLORS.muted,
-    marginTop: 40,
-    marginBottom: 20,
+    color: COLORS.textMuted,
+    fontSize: 11,
+    fontWeight: '600',
+    marginTop: SPACING.lg,
+    marginBottom: SPACING.md,
   },
 });

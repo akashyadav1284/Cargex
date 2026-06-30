@@ -1,8 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, FlatList, TouchableOpacity, ActivityIndicator, Alert, RefreshControl } from 'react-native';
+import { 
+  StyleSheet, 
+  Text, 
+  View, 
+  FlatList, 
+  TouchableOpacity, 
+  Alert, 
+  RefreshControl,
+  StatusBar
+} from 'react-native';
 import apiClient from '../api/apiClient';
-import { COLORS, SPACING, SHADOWS } from '../constants/theme';
-import { Calendar, MapPin, Truck, AlertTriangle } from 'lucide-react-native';
+import { COLORS, SPACING, BORDER_RADIUS } from '../constants/theme';
+import { Calendar, MapPin, Truck, Trash2, PackageOpen } from 'lucide-react-native';
+import Card from '../components/Card';
+import Badge from '../components/Badge';
+import Loader from '../components/Loader';
+import Button from '../components/Button';
 
 export default function BookingHistoryScreen({ navigation }: any) {
   const [bookings, setBookings] = useState<any[]>([]);
@@ -48,101 +61,91 @@ export default function BookingHistoryScreen({ navigation }: any) {
     );
   };
 
-  const getStatusStyle = (status: string) => {
-    switch (status) {
-      case 'completed': return { bg: '#ECFDF5', text: COLORS.accent };
-      case 'cancelled': return { bg: '#FEF2F2', text: COLORS.red };
-      case 'requested': return { bg: '#FFFBEB', text: '#D97706' };
-      case 'accepted':
-      case 'arrived':
-      case 'in_progress':
-        return { bg: '#EFF6FF', text: COLORS.blue };
-      default:
-        return { bg: COLORS.surface, text: COLORS.muted };
-    }
-  };
-
   const renderBookingItem = ({ item }: { item: any }) => {
-    const statusStyle = getStatusStyle(item.status);
     const dateStr = new Date(item.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
     const timeStr = new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
     return (
-      <View style={styles.card}>
+      <Card variant="outlined" style={styles.historyCard} padding="none">
         <View style={styles.cardHeader}>
           <View style={styles.dateRow}>
-            <Calendar size={16} color={COLORS.muted} style={{ marginRight: 6 }} />
-            <Text style={styles.dateText}>{dateStr} at {timeStr}</Text>
+            <Calendar size={16} color={COLORS.textMuted} style={{ marginRight: 6 }} />
+            <Text style={styles.dateText}>{dateStr} • {timeStr}</Text>
           </View>
-          <View style={[styles.statusBadge, { backgroundColor: statusStyle.bg }]}>
-            <Text style={[styles.statusText, { color: statusStyle.text }]}>{item.status.toUpperCase()}</Text>
-          </View>
+          <Badge label={item.status} status={item.status} />
         </View>
 
-        <View style={styles.divider} />
-
-        <View style={styles.routeContainer}>
-          <View style={styles.locationRow}>
-            <View style={[styles.dot, { backgroundColor: COLORS.accent }]} />
-            <Text style={styles.addressText} numberOfLines={1}>{item.pickupLocation.address}</Text>
-          </View>
-          <View style={styles.line} />
-          <View style={styles.locationRow}>
-            <View style={[styles.dot, { backgroundColor: COLORS.red }]} />
-            <Text style={styles.addressText} numberOfLines={1}>{item.dropLocation.address}</Text>
+        <View style={styles.cardBody}>
+          <View style={styles.locationContainer}>
+            <View style={styles.locationRow}>
+              <View style={styles.greenDot} />
+              <Text style={styles.addressText} numberOfLines={1}>{item.pickupLocation.address}</Text>
+            </View>
+            <View style={styles.verticalLine} />
+            <View style={styles.locationRow}>
+              <View style={styles.redDot} />
+              <Text style={styles.addressText} numberOfLines={1}>{item.dropLocation.address}</Text>
+            </View>
           </View>
         </View>
-
-        <View style={styles.divider} />
 
         <View style={styles.cardFooter}>
-          <View style={styles.vehicleRow}>
-            <Truck size={18} color={COLORS.primary} style={{ marginRight: 6 }} />
-            <Text style={styles.vehicleText}>{item.vehicleType}</Text>
+          <View style={styles.vehicleInfoRow}>
+            <View style={styles.vehicleIconBadge}>
+              <Text style={styles.vehicleIcon}>🚛</Text>
+            </View>
+            <Text style={styles.vehicleName}>{item.vehicleType}</Text>
           </View>
-          <Text style={styles.priceText}>
-            ₹{item.pricing?.totalFare || item.price?.total || 0}
+          
+          <Text style={styles.fareCost}>
+            ₹{(item.pricing?.totalFare || item.price?.total || 0).toLocaleString()}
           </Text>
         </View>
 
-        {/* Live track option for active rides */}
-        {['accepted', 'arrived', 'in_progress'].includes(item.status) && (
-          <TouchableOpacity
-            style={[styles.actionBtn, { backgroundColor: COLORS.primary }]}
-            onPress={() => navigation.navigate('LiveTracking', { bookingId: item._id })}
-          >
-            <Text style={styles.actionBtnText}>Track Ride Live</Text>
-          </TouchableOpacity>
-        )}
+        <View style={styles.actionsRow}>
+          {/* Live track option for active rides */}
+          {['accepted', 'arrived', 'in_progress'].includes(item.status) && (
+            <Button
+              label="Track Shipment"
+              onPress={() => navigation.navigate('LiveTracking', { bookingId: item._id })}
+              style={styles.actionBtn}
+            />
+          )}
 
-        {/* Cancel option for requested rides */}
-        {item.status === 'requested' && (
-          <TouchableOpacity
-            style={[styles.actionBtn, { backgroundColor: '#FEF2F2', borderColor: '#FCA5A5', borderWidth: 1 }]}
-            onPress={() => handleCancelBooking(item._id)}
-          >
-            <Text style={[styles.actionBtnText, { color: COLORS.red }]}>Cancel Ride Request</Text>
-          </TouchableOpacity>
-        )}
-      </View>
+          {/* Cancel option for requested rides */}
+          {item.status === 'requested' && (
+            <Button
+              label="Cancel Request"
+              onPress={() => handleCancelBooking(item._id)}
+              variant="outline"
+              icon={<Trash2 size={16} color={COLORS.error} style={{ marginRight: 4 }} />}
+              style={styles.cancelBtn}
+              labelStyle={styles.cancelBtnText}
+            />
+          )}
+        </View>
+      </Card>
     );
   };
 
   return (
     <View style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
+      
       {isLoading ? (
-        <ActivityIndicator size="large" color={COLORS.accent} style={{ marginTop: 40 }} />
+        <Loader style={{ marginTop: 40 }} />
       ) : bookings.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <AlertTriangle size={48} color={COLORS.muted} />
-          <Text style={styles.emptyTitle}>No Bookings Found</Text>
-          <Text style={styles.emptySubtitle}>You haven't requested any rides yet.</Text>
-          <TouchableOpacity
+          <View style={styles.emptyCircle}>
+            <PackageOpen size={64} color={COLORS.secondary} />
+          </View>
+          <Text style={styles.emptyTitle}>No Shipments Yet</Text>
+          <Text style={styles.emptySubtitle}>You haven't requested any logistics deliveries yet.</Text>
+          <Button
+            label="Book Your First Ride"
+            onPress={() => navigation.navigate('BookTab')}
             style={styles.bookBtn}
-            onPress={() => navigation.navigate('BookingFlow')}
-          >
-            <Text style={styles.bookBtnText}>Book Your First Ride</Text>
-          </TouchableOpacity>
+          />
         </View>
       ) : (
         <FlatList
@@ -150,8 +153,9 @@ export default function BookingHistoryScreen({ navigation }: any) {
           keyExtractor={(item) => item._id}
           renderItem={renderBookingItem}
           contentContainerStyle={styles.listContainer}
+          showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl refreshing={isRefreshing} onRefresh={() => { setIsRefreshing(true); fetchBookings(); }} colors={[COLORS.accent]} />
+            <RefreshControl refreshing={isRefreshing} onRefresh={() => { setIsRefreshing(true); fetchBookings(); }} colors={[COLORS.secondary]} />
           }
         />
       )}
@@ -165,22 +169,21 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   listContainer: {
-    padding: SPACING.md,
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.sm,
+    paddingBottom: 110,
   },
-  card: {
-    backgroundColor: COLORS.background,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 12,
-    padding: SPACING.md,
-    marginBottom: SPACING.md,
-    ...SHADOWS.sm,
+  historyCard: {
+    marginVertical: 6,
+    backgroundColor: COLORS.card,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: SPACING.sm,
+    padding: SPACING.md,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
   },
   dateRow: {
     flexDirection: 'row',
@@ -188,111 +191,129 @@ const styles = StyleSheet.create({
   },
   dateText: {
     fontSize: 12,
-    color: COLORS.muted,
-    fontWeight: '600',
+    fontWeight: '700',
+    color: COLORS.textMuted,
   },
-  statusBadge: {
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 6,
+  cardBody: {
+    paddingHorizontal: SPACING.md,
+    paddingTop: SPACING.md,
   },
-  statusText: {
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: COLORS.border,
-    marginVertical: SPACING.sm,
-  },
-  routeContainer: {
-    paddingLeft: 4,
+  locationContainer: {
+    paddingLeft: 2,
   },
   locationRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  dot: {
+  greenDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    marginRight: 10,
+    backgroundColor: COLORS.secondary,
   },
-  line: {
-    width: 2,
-    height: 10,
+  redDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: COLORS.error,
+  },
+  verticalLine: {
+    width: 1.5,
+    height: 16,
     backgroundColor: COLORS.border,
     marginLeft: 3,
     marginVertical: 2,
   },
   addressText: {
-    fontSize: 14,
-    color: COLORS.foreground,
-    fontWeight: '500',
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginLeft: 10,
     flex: 1,
   },
   cardFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: SPACING.xs,
+    padding: SPACING.md,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
+    marginTop: SPACING.sm,
   },
-  vehicleRow: {
+  vehicleInfoRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  vehicleText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: COLORS.foreground,
+  vehicleIconBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: BORDER_RADIUS.xs,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
   },
-  priceText: {
+  vehicleIcon: {
     fontSize: 18,
+  },
+  vehicleName: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: COLORS.primary,
+  },
+  fareCost: {
+    fontSize: 16,
     fontWeight: '900',
     color: COLORS.primary,
   },
-  actionBtn: {
-    borderRadius: 8,
+  actionsRow: {
+    paddingHorizontal: SPACING.md,
     paddingVertical: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: SPACING.md,
   },
-  actionBtnText: {
-    color: COLORS.white,
-    fontSize: 14,
-    fontWeight: '700',
+  actionBtn: {
+    height: 44,
+  },
+  cancelBtn: {
+    height: 44,
+    borderColor: '#FCA5A5',
+    backgroundColor: '#FEF2F2',
+  },
+  cancelBtnText: {
+    color: COLORS.error,
   },
   emptyContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     padding: SPACING.xl,
-    marginTop: 40,
+  },
+  emptyCircle: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: '#F0FDF4',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#DCFCE7',
+    marginBottom: SPACING.lg,
   },
   emptyTitle: {
-    fontSize: 20,
-    fontWeight: '800',
+    fontSize: 22,
+    fontWeight: '900',
     color: COLORS.primary,
-    marginTop: SPACING.md,
+    letterSpacing: -0.5,
   },
   emptySubtitle: {
     fontSize: 14,
-    color: COLORS.muted,
+    color: COLORS.textMuted,
     marginTop: SPACING.xs,
     marginBottom: SPACING.xl,
     textAlign: 'center',
+    lineHeight: 20,
+    fontWeight: '500',
   },
   bookBtn: {
-    backgroundColor: COLORS.primary,
-    borderRadius: 8,
-    paddingVertical: 12,
-    paddingHorizontal: SPACING.xl,
-    ...SHADOWS.md,
-  },
-  bookBtnText: {
-    color: COLORS.white,
-    fontSize: 16,
-    fontWeight: '600',
+    width: '100%',
   },
 });

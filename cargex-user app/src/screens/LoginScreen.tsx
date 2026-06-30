@@ -1,8 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, TextInput, View, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, SafeAreaView } from 'react-native';
+import { 
+  StyleSheet, 
+  Text, 
+  View, 
+  KeyboardAvoidingView, 
+  Platform, 
+  ScrollView, 
+  SafeAreaView,
+  Image
+} from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
-import { COLORS, SPACING, SHADOWS } from '../constants/theme';
+import { COLORS, SPACING, BORDER_RADIUS } from '../constants/theme';
 import { GoogleSignin, statusCodes } from '@react-native-google-signin/google-signin';
+import { Mail, Lock, LogIn } from 'lucide-react-native';
+import Button from '../components/Button';
+import Input from '../components/Input';
 
 export default function LoginScreen({ navigation }: any) {
   const { login, loginWithGoogle } = useAuth();
@@ -73,81 +85,90 @@ export default function LoginScreen({ navigation }: any) {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
       >
-        <ScrollView contentContainerStyle={styles.container}>
-          <View style={styles.header}>
-            <Text style={styles.logo}>Cargex</Text>
-            <Text style={styles.subtitle}>Log in to request rides and manage cargo deliveries.</Text>
+        <ScrollView 
+          contentContainerStyle={styles.container}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Logo Brand Header */}
+          <View style={styles.brandContainer}>
+            <View style={styles.logoBadge}>
+              <Text style={styles.logoBadgeText}>C</Text>
+            </View>
+            <Text style={styles.logoText}>Cargex</Text>
+            <Text style={styles.subtitle}>Moving India Smarter</Text>
           </View>
 
-          {errorMsg ? (
-            <View style={styles.errorContainer}>
-              <Text style={styles.errorText}>{errorMsg}</Text>
-            </View>
-          ) : null}
+          {/* Form Panel */}
+          <View style={styles.formContainer}>
+            <Text style={styles.formTitle}>Welcome Back</Text>
+            <Text style={styles.formSubtitle}>Log in to request rides and manage deliveries.</Text>
 
-          <View style={styles.form}>
-            <Text style={styles.label}>Email or Phone Number</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. user@example.com or +91..."
-              placeholderTextColor={COLORS.muted}
+            {errorMsg ? (
+              <View style={styles.errorCard}>
+                <Text style={styles.errorText}>{errorMsg}</Text>
+              </View>
+            ) : null}
+
+            <Input
               value={identifier}
               onChangeText={setIdentifier}
-              autoCapitalize="none"
+              placeholder="user@example.com or phone..."
+              label="Email or Phone Number"
+              icon={<Mail size={20} color={COLORS.textMuted} />}
               keyboardType="email-address"
             />
 
-            <Text style={styles.label}>Password</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter your password"
-              placeholderTextColor={COLORS.muted}
+            <Input
               value={password}
               onChangeText={setPassword}
+              placeholder="Enter your password"
+              label="Password"
               secureTextEntry
-              autoCapitalize="none"
+              icon={<Lock size={20} color={COLORS.textMuted} />}
             />
 
-            <TouchableOpacity
-              style={styles.button}
+            <Button
+              label="Log In"
               onPress={handleLogin}
-              disabled={isLoading || isGoogleLoading}
-              activeOpacity={0.8}
-            >
-              {isLoading ? (
-                <ActivityIndicator color={COLORS.white} />
-              ) : (
-                <Text style={styles.buttonText}>Log In</Text>
-              )}
-            </TouchableOpacity>
+              isLoading={isLoading}
+              disabled={isGoogleLoading}
+              icon={<LogIn size={20} color={COLORS.white} />}
+              style={styles.loginBtn}
+            />
 
             <View style={styles.dividerContainer}>
-              <View style={styles.dividerLine} />
+              <View style={styles.line} />
               <Text style={styles.dividerText}>or</Text>
-              <View style={styles.dividerLine} />
+              <View style={styles.line} />
             </View>
 
-            <TouchableOpacity
-              style={styles.googleButton}
+            {/* Google Branded Button */}
+            <Button
+              label="Continue with Google"
               onPress={handleGoogleLogin}
-              disabled={isGoogleLoading || isLoading}
-              activeOpacity={0.8}
-            >
-              {isGoogleLoading ? (
-                <ActivityIndicator color={COLORS.foreground} />
-              ) : (
-                <View style={styles.googleButtonContent}>
-                  <Text style={styles.googleIcon}>G</Text>
-                  <Text style={styles.googleButtonText}>Continue with Google</Text>
+              variant="outline"
+              isLoading={isGoogleLoading}
+              disabled={isLoading}
+              icon={
+                <View style={styles.gCircle}>
+                  <Text style={styles.gText}>G</Text>
                 </View>
-              )}
-            </TouchableOpacity>
+              }
+              style={styles.googleBtn}
+              labelStyle={styles.googleBtnText}
+            />
 
+            {/* Footer Navigation */}
             <View style={styles.footer}>
               <Text style={styles.footerText}>Don't have an account? </Text>
-              <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-                <Text style={styles.footerLink}>Sign Up</Text>
-              </TouchableOpacity>
+              <Button
+                label="Sign Up"
+                onPress={() => navigation.navigate('Register')}
+                variant="ghost"
+                style={styles.signUpBtn}
+                labelStyle={styles.signUpBtnText}
+              />
             </View>
           </View>
         </ScrollView>
@@ -164,124 +185,129 @@ const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
     paddingHorizontal: SPACING.lg,
-    paddingVertical: SPACING.xl,
+    paddingBottom: SPACING.xl,
     justifyContent: 'center',
   },
-  header: {
+  brandContainer: {
+    alignItems: 'center',
+    marginTop: SPACING.xl,
     marginBottom: SPACING.xl,
   },
-  logo: {
-    fontSize: 40,
+  logoBadge: {
+    width: 64,
+    height: 64,
+    borderRadius: BORDER_RADIUS.md,
+    backgroundColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: SPACING.sm,
+  },
+  logoBadgeText: {
+    fontSize: 32,
+    fontWeight: '900',
+    color: COLORS.secondary,
+  },
+  logoText: {
+    fontSize: 32,
     fontWeight: '900',
     color: COLORS.primary,
     letterSpacing: -1,
   },
   subtitle: {
-    fontSize: 16,
-    color: COLORS.muted,
-    marginTop: SPACING.xs,
-    lineHeight: 22,
+    fontSize: 12,
+    fontWeight: '800',
+    color: COLORS.secondary,
+    textTransform: 'uppercase',
+    letterSpacing: 2,
+    marginTop: 4,
   },
-  errorContainer: {
-    backgroundColor: '#FEF2F2',
-    borderWidth: 1,
-    borderColor: '#FCA5A5',
-    padding: SPACING.md,
-    borderRadius: 8,
-    marginBottom: SPACING.lg,
+  formContainer: {
+    flex: 1,
   },
-  errorText: {
-    color: COLORS.red,
+  formTitle: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: COLORS.primary,
+    letterSpacing: -0.5,
+  },
+  formSubtitle: {
     fontSize: 14,
+    color: COLORS.textMuted,
+    marginTop: 2,
+    marginBottom: SPACING.md,
     fontWeight: '500',
   },
-  form: {
-    marginTop: SPACING.sm,
+  errorCard: {
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1.5,
+    borderColor: '#FCA5A5',
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md,
+    marginVertical: SPACING.sm,
   },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.foreground,
-    marginBottom: SPACING.xs,
+  errorText: {
+    color: COLORS.error,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  loginBtn: {
     marginTop: SPACING.md,
-  },
-  input: {
-    backgroundColor: COLORS.inputBg,
-    borderRadius: 8,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: COLORS.foreground,
-    borderWidth: 1,
-    borderColor: 'transparent',
-  },
-  button: {
-    backgroundColor: COLORS.primary,
-    borderRadius: 8,
-    paddingVertical: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: SPACING.xl,
-    ...SHADOWS.md,
-  },
-  buttonText: {
-    color: COLORS.white,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: SPACING.xl,
-  },
-  footerText: {
-    color: COLORS.muted,
-    fontSize: 14,
-  },
-  footerLink: {
-    color: COLORS.accent,
-    fontSize: 14,
-    fontWeight: '600',
   },
   dividerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     marginVertical: SPACING.lg,
   },
-  dividerLine: {
+  line: {
     flex: 1,
-    height: 1,
-    backgroundColor: '#E5E7EB',
+    height: 1.5,
+    backgroundColor: COLORS.border,
   },
   dividerText: {
     marginHorizontal: SPACING.md,
-    color: COLORS.muted,
+    color: COLORS.textMuted,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  googleBtn: {
+    backgroundColor: COLORS.white,
+    borderColor: COLORS.border,
+  },
+  googleBtnText: {
+    color: COLORS.primary,
+  },
+  gCircle: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#4285F4',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  gText: {
+    color: COLORS.white,
+    fontSize: 12,
+    fontWeight: '900',
+  },
+  footer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: SPACING.xl,
+  },
+  footerText: {
+    color: COLORS.textMuted,
     fontSize: 14,
     fontWeight: '500',
   },
-  googleButton: {
-    backgroundColor: COLORS.white,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    paddingVertical: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...SHADOWS.sm,
+  signUpBtn: {
+    height: 'auto',
+    paddingHorizontal: 0,
+    borderWidth: 0,
   },
-  googleButtonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  googleIcon: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#4285F4',
-    marginRight: SPACING.sm,
-  },
-  googleButtonText: {
-    color: COLORS.foreground,
-    fontSize: 16,
-    fontWeight: '600',
+  signUpBtnText: {
+    color: COLORS.secondary,
+    fontSize: 14,
+    fontWeight: '700',
   },
 });

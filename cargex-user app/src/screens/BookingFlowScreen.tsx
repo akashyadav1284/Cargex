@@ -1,9 +1,40 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, ScrollView, TextInput, TouchableOpacity, ActivityIndicator, FlatList, Alert } from 'react-native';
+import { 
+  StyleSheet, 
+  Text, 
+  View, 
+  ScrollView, 
+  TouchableOpacity, 
+  ActivityIndicator, 
+  Alert,
+  Platform,
+  StatusBar,
+  SafeAreaView,
+  StyleProp,
+  ViewStyle
+} from 'react-native';
 import * as Location from 'expo-location';
 import apiClient from '../api/apiClient';
-import { COLORS, SPACING, SHADOWS } from '../constants/theme';
-import { MapPin, ArrowRight, ArrowLeft, Check, Info } from 'lucide-react-native';
+import { COLORS, SPACING, BORDER_RADIUS, SHADOWS } from '../constants/theme';
+import { 
+  MapPin, 
+  ArrowRight, 
+  Check, 
+  Truck, 
+  Search, 
+  MapPinOff, 
+  Compass, 
+  Layers, 
+  Sparkles, 
+  Info,
+  DollarSign
+} from 'lucide-react-native';
+import Button from '../components/Button';
+import Input from '../components/Input';
+import Card from '../components/Card';
+import Badge from '../components/Badge';
+import Loader from '../components/Loader';
+import Header from '../components/Header';
 
 const STATIC_CATEGORIES = [
   "Construction Material",
@@ -15,10 +46,19 @@ const STATIC_CATEGORIES = [
   "Food & Agriculture"
 ];
 
+const STEP_TITLES = [
+  "Cargo Category",
+  "Cargo Details",
+  "Address Routing",
+  "Select Vehicle",
+  "Review & Request"
+];
+
 export default function BookingFlowScreen({ navigation }: any) {
   const [step, setStep] = useState(1);
   const [categories, setCategories] = useState<string[]>(STATIC_CATEGORIES);
   const [selectedCategory, setSelectedCategory] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [cargoTypes, setCargoTypes] = useState<any[]>([]);
   const [selectedCargo, setSelectedCargo] = useState<any>(null);
   const [loadType, setLoadType] = useState('small'); // small, medium, heavy
@@ -47,7 +87,6 @@ export default function BookingFlowScreen({ navigation }: any) {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    // Load categories from API on mount
     const fetchCategories = async () => {
       try {
         const res = await apiClient.get('/api/universal/categories');
@@ -61,7 +100,6 @@ export default function BookingFlowScreen({ navigation }: any) {
     fetchCategories();
   }, []);
 
-  // Fetch Subcategories (Cargo types)
   const fetchCargoTypes = async (categoryName: string) => {
     setIsLoading(true);
     try {
@@ -91,7 +129,6 @@ export default function BookingFlowScreen({ navigation }: any) {
       const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       const { latitude, longitude } = position.coords;
 
-      // Reverse geocode via Nominatim
       const res = await fetch(
         `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`,
         {
@@ -119,7 +156,6 @@ export default function BookingFlowScreen({ navigation }: any) {
     }
   };
 
-  // Autocomplete OpenStreetMap search
   const handleAddressSearch = async (text: string, type: 'pickup' | 'drop') => {
     if (type === 'pickup') {
       setPickupText(text);
@@ -152,7 +188,6 @@ export default function BookingFlowScreen({ navigation }: any) {
     }
   };
 
-  // Get distance and route from OSRM
   const getRouteAndRecommendations = async () => {
     if (!pickupLoc || !dropLoc) {
       Alert.alert('Incomplete locations', 'Please specify both pickup and drop-off points.');
@@ -160,7 +195,6 @@ export default function BookingFlowScreen({ navigation }: any) {
     }
     setIsLoading(true);
     try {
-      // Query OSRM to get exact routing distance
       const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${pickupLoc.lon},${pickupLoc.lat};${dropLoc.lon},${dropLoc.lat}?overview=false`;
       const osrmRes = await fetch(osrmUrl);
       const osrmData = await osrmRes.json();
@@ -174,7 +208,6 @@ export default function BookingFlowScreen({ navigation }: any) {
       setDistanceKm(finalDistance);
       setDurationMin(finalDuration);
 
-      // Call pricing / recommendation API
       const recommendRes = await apiClient.post('/api/universal/recommend', {
         cargoTypeId: selectedCargo._id,
         distanceKm: finalDistance,
@@ -189,7 +222,6 @@ export default function BookingFlowScreen({ navigation }: any) {
     }
   };
 
-  // Confirm booking creation
   const handleConfirmBooking = async () => {
     if (!selectedVehicle) return;
     setIsLoading(true);
@@ -233,471 +265,610 @@ export default function BookingFlowScreen({ navigation }: any) {
     }
   };
 
+  const filteredCategories = categories.filter(c => 
+    c.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
-    <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-      {/* Top Banner */}
-      <View style={styles.topBanner}>
-        {step > 1 && (
-          <TouchableOpacity onPress={() => setStep(step - 1)} style={styles.backBtn}>
-            <ArrowLeft size={20} color={COLORS.foreground} />
-          </TouchableOpacity>
-        )}
-        <Text style={styles.title}>Book Cargo Truck</Text>
-        <Text style={styles.stepIndicator}>Step {step} of 5</Text>
-      </View>
+    <SafeAreaView style={styles.safe}>
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
+      
+      {/* Dynamic Back-aware Header */}
+      <Header 
+        title={STEP_TITLES[step - 1]} 
+        showBackButton={step > 1}
+        onBackPress={() => setStep(step - 1)}
+        rightComponent={
+          <View style={styles.stepBadge}>
+            <Text style={styles.stepBadgeText}>{step}/5</Text>
+          </View>
+        }
+      />
 
-      {isLoading && step !== 3 && (
-        <View style={styles.centerLoading}>
-          <ActivityIndicator size="large" color={COLORS.accent} />
-          <Text style={styles.loadingText}>Fetching details...</Text>
-        </View>
-      )}
-
-      {/* STEP 1: CATEGORY SELECTION */}
-      {!isLoading && step === 1 && (
-        <View>
-          <Text style={styles.sectionHeader}>Select Cargo Category</Text>
-          {categories.map((cat) => (
-            <TouchableOpacity
-              key={cat}
-              style={styles.cardItem}
-              onPress={() => {
-                setSelectedCategory(cat);
-                fetchCargoTypes(cat);
-              }}
-            >
-              <Text style={styles.cardText}>{cat}</Text>
-              <ArrowRight size={20} color={COLORS.muted} />
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
-
-      {/* STEP 2: SUBCATEGORY (CARGO TYPE) */}
-      {!isLoading && step === 2 && (
-        <View>
-          <Text style={styles.sectionHeader}>What are you transporting?</Text>
-          <Text style={styles.sectionSub}>{selectedCategory}</Text>
-          
-          {cargoTypes.map((cargo) => (
-            <TouchableOpacity
-              key={cargo._id || cargo.name}
-              style={[
-                styles.cardItem,
-                selectedCargo?._id === cargo._id && styles.cardSelected
-              ]}
-              onPress={() => setSelectedCargo(cargo)}
-            >
-              <View>
-                <Text style={styles.cardText}>{cargo.name}</Text>
-                {cargo.description ? (
-                  <Text style={styles.cardSubtext}>{cargo.description}</Text>
-                ) : null}
+      <ScrollView 
+        contentContainerStyle={styles.container} 
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Stepper Progress Line */}
+        <View style={styles.stepperContainer}>
+          {[1, 2, 3, 4, 5].map((s) => (
+            <View key={s} style={styles.stepDotWrapper}>
+              <View 
+                style={[
+                  styles.stepDot,
+                  s === step ? styles.stepDotActive : undefined,
+                  s < step ? styles.stepDotCompleted : undefined
+                ] as any}
+              >
+                {s < step ? (
+                  <Check size={10} color={COLORS.white} />
+                ) : (
+                  <Text style={[styles.stepNumber, s === step ? { color: COLORS.white } : undefined] as any}>{s}</Text>
+                )}
               </View>
-              {selectedCargo?._id === cargo._id && <Check size={20} color={COLORS.accent} />}
-            </TouchableOpacity>
+              {s < 5 && (
+                <View 
+                  style={[
+                    styles.stepLine,
+                    s < step ? { backgroundColor: COLORS.secondary } : undefined
+                  ] as any} 
+                />
+              )}
+            </View>
           ))}
+        </View>
 
-          {/* Load Type Select */}
-          {selectedCargo && (
-            <View style={styles.loadTypeSection}>
-              <Text style={styles.label}>Select Load Size</Text>
-              <View style={styles.loadRow}>
-                {['small', 'medium', 'heavy'].map((size) => (
-                  <TouchableOpacity
-                    key={size}
+        {isLoading && step !== 3 && (
+          <View style={styles.loadingWrapper}>
+            <ActivityIndicator size="large" color={COLORS.secondary} />
+            <Text style={styles.loadingText}>Configuring request details...</Text>
+          </View>
+        )}
+
+        {/* STEP 1: CATEGORY SELECTION */}
+        {!isLoading && step === 1 && (
+          <View>
+            <View style={styles.sectionHeaderRow}>
+              <Layers size={22} color={COLORS.secondary} />
+              <Text style={styles.sectionTitle}>What is your cargo category?</Text>
+            </View>
+            
+            <Input 
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Search logistics categories..."
+              icon={<Search size={20} color={COLORS.textMuted} />}
+            />
+
+            <View style={styles.list}>
+              {filteredCategories.map((cat) => (
+                <Card
+                  key={cat}
+                  onPress={() => {
+                    setSelectedCategory(cat);
+                    fetchCargoTypes(cat);
+                  }}
+                  style={styles.categoryCard}
+                  padding="medium"
+                  variant="outlined"
+                >
+                  <View style={styles.categoryRow}>
+                    <Text style={styles.categoryName}>{cat}</Text>
+                    <ArrowRight size={18} color={COLORS.secondary} />
+                  </View>
+                </Card>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* STEP 2: SUBCATEGORY (CARGO TYPE) */}
+        {!isLoading && step === 2 && (
+          <View>
+            <View style={styles.sectionHeaderRow}>
+              <Sparkles size={22} color={COLORS.secondary} />
+              <View style={{ marginLeft: 8 }}>
+                <Text style={styles.sectionTitle}>Specify Item Details</Text>
+                <Text style={styles.sectionSubtitle}>{selectedCategory}</Text>
+              </View>
+            </View>
+
+            <View style={styles.list}>
+              {cargoTypes.map((cargo) => (
+                <Card
+                  key={cargo._id || cargo.name}
+                  onPress={() => setSelectedCargo(cargo)}
+                  variant={selectedCargo?._id === cargo._id ? 'flat' : 'outlined'}
+                  style={[
+                    styles.cargoCard,
+                    selectedCargo?._id === cargo._id ? { borderColor: COLORS.secondary, borderWidth: 1.5 } : undefined
+                  ] as any}
+                >
+                  <View style={styles.categoryRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.categoryName}>{cargo.name}</Text>
+                      {cargo.description ? (
+                        <Text style={styles.cargoDesc}>{cargo.description}</Text>
+                      ) : null}
+                    </View>
+                    {selectedCargo?._id === cargo._id && (
+                      <Check size={20} color={COLORS.secondary} />
+                    )}
+                  </View>
+                </Card>
+              ))}
+            </View>
+
+            {/* Load Type Select */}
+            {selectedCargo && (
+              <View style={styles.optionBox}>
+                <Text style={styles.optionLabel}>Select Cargo Load Weight</Text>
+                <View style={styles.loadTabs}>
+                  {['small', 'medium', 'heavy'].map((size) => (
+                    <TouchableOpacity
+                      key={size}
+                      style={[
+                        styles.loadTabBtn,
+                        loadType === size ? styles.loadTabBtnSelected : undefined
+                      ] as any}
+                      onPress={() => setLoadType(size)}
+                    >
+                      <Text style={[styles.loadTabText, loadType === size ? styles.loadTabTextSelected : undefined] as any}>
+                        {size.toUpperCase()}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <Button 
+                  label="Confirm Details" 
+                  onPress={() => setStep(3)}
+                  style={{ marginTop: SPACING.md }}
+                />
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* STEP 3: PICKUP AND DROP LOCATIONS */}
+        {step === 3 && (
+          <View style={{ zIndex: 100 }}>
+            <View style={styles.sectionHeaderRow}>
+              <MapPin size={22} color={COLORS.secondary} />
+              <Text style={styles.sectionTitle}>Add Delivery Route</Text>
+            </View>
+
+            {/* Pickup Input Card */}
+            <Card variant="outlined" style={styles.locContainer} padding="medium">
+              <View style={styles.locHeader}>
+                <Text style={styles.locLabel}>Pickup Location</Text>
+                <TouchableOpacity onPress={handleGetCurrentLocation} style={styles.gpsBtn}>
+                  <Compass size={14} color={COLORS.secondary} style={{ marginRight: 4 }} />
+                  <Text style={styles.gpsBtnText}>Use GPS</Text>
+                </TouchableOpacity>
+              </View>
+              
+              <Input
+                value={pickupText}
+                onChangeText={(t) => handleAddressSearch(t, 'pickup')}
+                placeholder="Search pickup address..."
+                onFocus={() => setIsPickupFocused(true)}
+                onBlur={() => setTimeout(() => setIsPickupFocused(false), 250)}
+                icon={<MapPin size={18} color={COLORS.secondary} />}
+              />
+
+              {isPickupFocused && pickupSuggestions.length > 0 && (
+                <View style={styles.suggestionsBox}>
+                  {pickupSuggestions.map((item: any) => (
+                    <TouchableOpacity
+                      key={item.place_id}
+                      style={styles.suggestionItem}
+                      onPress={() => {
+                        setPickupLoc(item);
+                        setPickupText(item.display_name);
+                        setPickupSuggestions([]);
+                      }}
+                    >
+                      <MapPin size={16} color={COLORS.textMuted} style={{ marginRight: 8 }} />
+                      <Text numberOfLines={1} style={styles.suggestionText}>{item.display_name}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </Card>
+
+            {/* Drop Input Card */}
+            <Card variant="outlined" style={[styles.locContainer, { marginTop: SPACING.md }] as any} padding="medium">
+              <Text style={styles.locLabel}>Dropoff Location</Text>
+              
+              <Input
+                value={dropText}
+                onChangeText={(t) => handleAddressSearch(t, 'drop')}
+                placeholder="Search destination address..."
+                onFocus={() => setIsDropFocused(true)}
+                onBlur={() => setTimeout(() => setIsDropFocused(false), 250)}
+                icon={<MapPin size={18} color={COLORS.error} />}
+              />
+
+              {isDropFocused && dropSuggestions.length > 0 && (
+                <View style={styles.suggestionsBox}>
+                  {dropSuggestions.map((item: any) => (
+                    <TouchableOpacity
+                      key={item.place_id}
+                      style={styles.suggestionItem}
+                      onPress={() => {
+                        setDropLoc(item);
+                        setDropText(item.display_name);
+                        setDropSuggestions([]);
+                      }}
+                    >
+                      <MapPin size={16} color={COLORS.textMuted} style={{ marginRight: 8 }} />
+                      <Text numberOfLines={1} style={styles.suggestionText}>{item.display_name}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </Card>
+
+            {pickupLoc && dropLoc && (
+              <View style={{ marginTop: SPACING.lg }}>
+                <Button
+                  label="Calculate Route & Price"
+                  onPress={getRouteAndRecommendations}
+                  isLoading={isLoading}
+                  style={styles.routingBtn}
+                />
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* STEP 4: VEHICLE SELECTION */}
+        {!isLoading && step === 4 && (
+          <View>
+            <View style={styles.sectionHeaderRow}>
+              <Truck size={22} color={COLORS.secondary} />
+              <Text style={styles.sectionTitle}>Select Vehicle Type</Text>
+            </View>
+
+            <View style={styles.routeSummaryBox}>
+              <Text style={styles.routeSummaryText}>
+                Distance: <Text style={styles.boldText}>{distanceKm} km</Text> | Duration: <Text style={styles.boldText}>{durationMin} mins</Text>
+              </Text>
+            </View>
+
+            <View style={styles.list}>
+              {recommendations.map((rec: any) => {
+                const isSelected = selectedVehicle?.vehicleTypeId === rec.vehicleTypeId;
+                return (
+                  <Card
+                    key={rec.vehicleTypeId}
+                    onPress={() => setSelectedVehicle(rec)}
+                    variant={isSelected ? 'flat' : 'outlined'}
                     style={[
-                      styles.loadBtn,
-                      loadType === size && styles.loadBtnSelected
-                    ]}
-                    onPress={() => setLoadType(size)}
+                      styles.vehicleCard,
+                      isSelected ? { borderColor: COLORS.secondary, borderWidth: 1.5 } : undefined
+                    ] as any}
                   >
-                    <Text style={[styles.loadBtnText, loadType === size && styles.loadBtnTextSelected]}>
-                      {size.toUpperCase()}
+                    <View style={styles.vehicleRow}>
+                      <View style={styles.vehicleGraphic}>
+                        <Text style={styles.vehicleIcon}>🚛</Text>
+                      </View>
+                      
+                      <View style={{ flex: 1, marginLeft: 12 }}>
+                        <Text style={styles.vehicleName}>{rec.name}</Text>
+                        <Text style={styles.vehicleCap}>Max Payload: {rec.capacity} kg</Text>
+                        <Text style={styles.vehicleDesc}>Base fare starts from ₹{rec.breakdown?.baseFare || 0}</Text>
+                      </View>
+
+                      <View style={{ alignItems: 'flex-end' }}>
+                        <Text style={styles.vehicleCost}>₹{(rec.breakdown?.totalFare || rec.estimatedPrice || 0).toLocaleString()}</Text>
+                        {isSelected && (
+                          <Check size={20} color={COLORS.secondary} style={{ marginTop: 4 }} />
+                        )}
+                      </View>
+                    </View>
+                  </Card>
+                );
+              })}
+            </View>
+
+            {selectedVehicle && (
+              <Button
+                label="Proceed to Checkout"
+                onPress={() => setStep(5)}
+                style={{ marginTop: SPACING.lg }}
+              />
+            )}
+          </View>
+        )}
+
+        {/* STEP 5: FINAL CONFIRMATION & PAYMENT */}
+        {!isLoading && step === 5 && (
+          <View>
+            <View style={styles.sectionHeaderRow}>
+              <Check size={22} color={COLORS.secondary} />
+              <Text style={styles.sectionTitle}>Review Booking</Text>
+            </View>
+
+            {/* Summary Review Card */}
+            <Card variant="outlined" style={styles.summaryDetailsCard}>
+              <Text style={styles.summaryLabel}>Cargo Type</Text>
+              <Text style={styles.summaryValue}>{selectedCategory} - {selectedCargo.name} ({loadType.toUpperCase()})</Text>
+              
+              <Text style={styles.summaryLabel}>Assigned Transport</Text>
+              <Text style={styles.summaryValue}>{selectedVehicle.name} (Capacity: {selectedVehicle.capacity} kg)</Text>
+
+              <Text style={styles.summaryLabel}>Pickup</Text>
+              <Text style={styles.summaryValue} numberOfLines={2}>{pickupLoc.display_name}</Text>
+
+              <Text style={styles.summaryLabel}>Dropoff</Text>
+              <Text style={styles.summaryValue} numberOfLines={2}>{dropLoc.display_name}</Text>
+            </Card>
+
+            {/* Pricing Details Card */}
+            <Card variant="outlined" style={styles.pricingCard}>
+              <Text style={styles.priceSectionTitle}>Fare Breakdown</Text>
+              <View style={styles.pricingRow}>
+                <Text style={styles.pricingLabel}>Base Fare</Text>
+                <Text style={styles.pricingValue}>₹{selectedVehicle.breakdown?.baseFare || 0}</Text>
+              </View>
+              <View style={styles.pricingRow}>
+                <Text style={styles.pricingLabel}>Distance Charge ({distanceKm} km)</Text>
+                <Text style={styles.pricingValue}>₹{selectedVehicle.breakdown?.distanceCost || 0}</Text>
+              </View>
+              <View style={styles.pricingRow}>
+                <Text style={styles.pricingLabel}>Load Handling Surcharge</Text>
+                <Text style={styles.pricingValue}>₹{selectedVehicle.breakdown?.loadCost || 0}</Text>
+              </View>
+              <View style={[styles.pricingRow, styles.totalRow]}>
+                <Text style={styles.totalLabel}>Total Estimated Cost</Text>
+                <Text style={styles.totalValue}>₹{selectedVehicle.breakdown?.totalFare || 0}</Text>
+              </View>
+            </Card>
+
+            {/* Helpers Toggle */}
+            <View style={styles.reviewOptionBox}>
+              <Text style={styles.optionTitle}>Require Helpers for Handling?</Text>
+              <View style={styles.toggleRow}>
+                <TouchableOpacity
+                  style={[styles.toggleBtn, !helpersRequired ? styles.toggleBtnSelected : undefined] as any}
+                  onPress={() => setHelpersRequired(false)}
+                >
+                  <Text style={[styles.toggleBtnText, !helpersRequired ? styles.toggleBtnTextSelected : undefined] as any}>NO</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.toggleBtn, helpersRequired ? styles.toggleBtnSelected : undefined] as any}
+                  onPress={() => setHelpersRequired(true)}
+                >
+                  <Text style={[styles.toggleBtnText, helpersRequired ? styles.toggleBtnTextSelected : undefined] as any}>YES</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Payment Method Selector */}
+            <View style={styles.reviewOptionBox}>
+              <Text style={styles.optionTitle}>Select Payment Method</Text>
+              <View style={styles.toggleRow}>
+                {['Cash', 'UPI', 'Wallet'].map((method) => (
+                  <TouchableOpacity
+                    key={method}
+                    style={[styles.toggleBtn, paymentMethod === method ? styles.toggleBtnSelected : undefined] as any}
+                    onPress={() => setPaymentMethod(method)}
+                  >
+                    <Text style={[styles.toggleBtnText, paymentMethod === method ? styles.toggleBtnTextSelected : undefined] as any}>
+                      {method.toUpperCase()}
                     </Text>
                   </TouchableOpacity>
                 ))}
               </View>
-
-              <TouchableOpacity 
-                style={styles.primaryBtn}
-                onPress={() => setStep(3)}
-              >
-                <Text style={styles.primaryBtnText}>Continue to Locations</Text>
-              </TouchableOpacity>
             </View>
-          )}
-        </View>
-      )}
 
-      {/* STEP 3: PICKUP AND DROP LOCATIONS */}
-      {step === 3 && (
-        <View style={{ zIndex: 100 }}>
-          <Text style={styles.sectionHeader}>Enter Locations</Text>
-          
-          {/* Pickup Input */}
-          <View style={styles.inputContainer}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: SPACING.xs }}>
-              <Text style={[styles.label, { marginBottom: 0 }]}>Pickup Address</Text>
-              <TouchableOpacity onPress={handleGetCurrentLocation} style={{ paddingVertical: 2 }}>
-                <Text style={{ fontSize: 13, color: COLORS.accent, fontWeight: '700' }}>📍 Use GPS Location</Text>
-              </TouchableOpacity>
-            </View>
-            <TextInput
-              style={styles.input}
-              placeholder="Search pickup address..."
-              value={pickupText}
-              onChangeText={(t) => handleAddressSearch(t, 'pickup')}
-              onFocus={() => setIsPickupFocused(true)}
-              onBlur={() => setTimeout(() => setIsPickupFocused(false), 200)}
+            <Button
+              label="Request Secure Delivery"
+              onPress={handleConfirmBooking}
+              isLoading={isLoading}
+              style={[styles.confirmBtn, { backgroundColor: COLORS.secondary }] as any}
             />
-            {isPickupFocused && pickupSuggestions.length > 0 && (
-              <View style={styles.suggestionsBox}>
-                {pickupSuggestions.map((item: any) => (
-                  <TouchableOpacity
-                    key={item.place_id}
-                    style={styles.suggestionItem}
-                    onPress={() => {
-                      setPickupLoc(item);
-                      setPickupText(item.display_name);
-                      setPickupSuggestions([]);
-                    }}
-                  >
-                    <MapPin size={16} color={COLORS.muted} style={{ marginRight: 8 }} />
-                    <Text numberOfLines={1} style={styles.suggestionText}>{item.display_name}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
           </View>
-
-          {/* Drop Input */}
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Dropoff Address</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Search destination address..."
-              value={dropText}
-              onChangeText={(t) => handleAddressSearch(t, 'drop')}
-              onFocus={() => setIsDropFocused(true)}
-              onBlur={() => setTimeout(() => setIsDropFocused(false), 200)}
-            />
-            {isDropFocused && dropSuggestions.length > 0 && (
-              <View style={styles.suggestionsBox}>
-                {dropSuggestions.map((item: any) => (
-                  <TouchableOpacity
-                    key={item.place_id}
-                    style={styles.suggestionItem}
-                    onPress={() => {
-                      setDropLoc(item);
-                      setDropText(item.display_name);
-                      setDropSuggestions([]);
-                    }}
-                  >
-                    <MapPin size={16} color={COLORS.muted} style={{ marginRight: 8 }} />
-                    <Text numberOfLines={1} style={styles.suggestionText}>{item.display_name}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
-          </View>
-
-          {pickupLoc && dropLoc && (
-            <View style={{ marginTop: 20 }}>
-              {isLoading ? (
-                <ActivityIndicator size="small" color={COLORS.accent} />
-              ) : (
-                <TouchableOpacity 
-                  style={styles.primaryBtn}
-                  onPress={getRouteAndRecommendations}
-                >
-                  <Text style={styles.primaryBtnText}>Get Fare Estimate</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          )}
-        </View>
-      )}
-
-      {/* STEP 4: VEHICLE SELECTION */}
-      {!isLoading && step === 4 && (
-        <View>
-          <Text style={styles.sectionHeader}>Choose Vehicle</Text>
-          <View style={styles.summaryBox}>
-            <Text style={styles.summaryText}>Est. Distance: {distanceKm} km | Duration: {durationMin} mins</Text>
-          </View>
-
-          {recommendations.map((rec: any) => (
-            <TouchableOpacity
-              key={rec.vehicleTypeId}
-              style={[
-                styles.vehicleCard,
-                selectedVehicle?.vehicleTypeId === rec.vehicleTypeId && styles.vehicleCardSelected
-              ]}
-              onPress={() => setSelectedVehicle(rec)}
-            >
-              <Text style={styles.vehicleEmoji}>🚚</Text>
-              <View style={{ flex: 1, paddingHorizontal: 12 }}>
-                <Text style={styles.vehicleName}>{rec.name}</Text>
-                <Text style={styles.vehicleInfo}>Capacity: {rec.capacity} kg</Text>
-                <Text style={styles.vehicleInfo}>Base Fare: ₹{rec.breakdown?.baseFare || 0}</Text>
-              </View>
-              <View style={{ alignItems: 'flex-end' }}>
-                <Text style={styles.vehiclePrice}>₹{rec.breakdown?.totalFare || rec.estimatedPrice || 0}</Text>
-                {selectedVehicle?.vehicleTypeId === rec.vehicleTypeId && (
-                  <Check size={20} color={COLORS.accent} style={{ marginTop: 4 }} />
-                )}
-              </View>
-            </TouchableOpacity>
-          ))}
-
-          {selectedVehicle && (
-            <TouchableOpacity 
-              style={styles.primaryBtn}
-              onPress={() => setStep(5)}
-            >
-              <Text style={styles.primaryBtnText}>Proceed to Checkout</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      )}
-
-      {/* STEP 5: FINAL CONFIRMATION & PAYMENT */}
-      {!isLoading && step === 5 && (
-        <View>
-          <Text style={styles.sectionHeader}>Booking Confirmation</Text>
-
-          <View style={styles.detailsBox}>
-            <Text style={styles.detailsLabel}>Transport Selection</Text>
-            <Text style={styles.detailsVal}>{selectedCategory} - {selectedCargo.name} ({loadType.toUpperCase()})</Text>
-            
-            <Text style={styles.detailsLabel}>Vehicle Type</Text>
-            <Text style={styles.detailsVal}>{selectedVehicle.name} (Max: {selectedVehicle.capacity} kg)</Text>
-
-            <Text style={styles.detailsLabel}>Pickup Location</Text>
-            <Text style={styles.detailsVal} numberOfLines={2}>{pickupLoc.display_name}</Text>
-
-            <Text style={styles.detailsLabel}>Dropoff Location</Text>
-            <Text style={styles.detailsVal} numberOfLines={2}>{dropLoc.display_name}</Text>
-          </View>
-
-          {/* Pricing Breakdown */}
-          <View style={styles.pricingBox}>
-            <Text style={styles.pricingTitle}>Pricing Breakdown</Text>
-            <View style={styles.priceRow}>
-              <Text style={styles.priceLabel}>Base Fare</Text>
-              <Text style={styles.priceVal}>₹{selectedVehicle.breakdown?.baseFare || 0}</Text>
-            </View>
-            <View style={styles.priceRow}>
-              <Text style={styles.priceLabel}>Distance Charge ({distanceKm} km)</Text>
-              <Text style={styles.priceVal}>₹{selectedVehicle.breakdown?.distanceCost || 0}</Text>
-            </View>
-            <View style={styles.priceRow}>
-              <Text style={styles.priceLabel}>Load Surcharge</Text>
-              <Text style={styles.priceVal}>₹{selectedVehicle.breakdown?.loadCost || 0}</Text>
-            </View>
-            <View style={[styles.priceRow, styles.totalRow]}>
-              <Text style={styles.totalLabel}>Total Estimated Price</Text>
-              <Text style={styles.totalVal}>₹{selectedVehicle.breakdown?.totalFare || 0}</Text>
-            </View>
-          </View>
-
-          {/* Helpers Option */}
-          <View style={styles.optionBox}>
-            <Text style={styles.label}>Need helpers for loading/unloading?</Text>
-            <View style={styles.loadRow}>
-              <TouchableOpacity
-                style={[styles.loadBtn, !helpersRequired && styles.loadBtnSelected]}
-                onPress={() => setHelpersRequired(false)}
-              >
-                <Text style={[styles.loadBtnText, !helpersRequired && styles.loadBtnTextSelected]}>NO HELPERS</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.loadBtn, helpersRequired && styles.loadBtnSelected]}
-                onPress={() => setHelpersRequired(true)}
-              >
-                <Text style={[styles.loadBtnText, helpersRequired && styles.loadBtnTextSelected]}>YES, REQUIRE HELPERS</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Payment Method Option */}
-          <View style={styles.optionBox}>
-            <Text style={styles.label}>Select Payment Method</Text>
-            <View style={styles.loadRow}>
-              {['Cash', 'UPI', 'Wallet'].map((method) => (
-                <TouchableOpacity
-                  key={method}
-                  style={[styles.loadBtn, paymentMethod === method && styles.loadBtnSelected]}
-                  onPress={() => setPaymentMethod(method)}
-                >
-                  <Text style={[styles.loadBtnText, paymentMethod === method && styles.loadBtnTextSelected]}>
-                    {method}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-
-          <TouchableOpacity 
-            style={[styles.primaryBtn, { backgroundColor: COLORS.accent }]}
-            onPress={handleConfirmBooking}
-          >
-            <Text style={styles.primaryBtnText}>Confirm and Request Ride</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-    </ScrollView>
+        )}
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    padding: SPACING.md,
-    paddingBottom: 40,
+  safe: {
+    flex: 1,
     backgroundColor: COLORS.background,
   },
-  topBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: SPACING.lg,
+  container: {
+    paddingHorizontal: SPACING.lg,
+    paddingBottom: SPACING.xl,
   },
-  backBtn: {
-    padding: 8,
-    marginRight: 8,
-    borderRadius: 8,
-    backgroundColor: COLORS.surface,
+  stepBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: BORDER_RADIUS.xs,
+    backgroundColor: COLORS.surfaceHighlight,
+    borderWidth: 1,
+    borderColor: COLORS.border,
   },
-  title: {
-    fontSize: 20,
+  stepBadgeText: {
+    fontSize: 12,
     fontWeight: '800',
     color: COLORS.primary,
-    flex: 1,
   },
-  stepIndicator: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: COLORS.muted,
+  stepperContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: SPACING.md,
   },
-  centerLoading: {
+  stepDotWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  stepDot: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.background,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepDotActive: {
+    borderColor: COLORS.primary,
+    backgroundColor: COLORS.primary,
+  },
+  stepDotCompleted: {
+    borderColor: COLORS.secondary,
+    backgroundColor: COLORS.secondary,
+  },
+  stepNumber: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: COLORS.textMuted,
+  },
+  stepLine: {
+    width: 44,
+    height: 2,
+    backgroundColor: COLORS.border,
+    marginHorizontal: 4,
+  },
+  loadingWrapper: {
     marginVertical: 40,
     alignItems: 'center',
   },
   loadingText: {
     marginTop: 8,
-    color: COLORS.muted,
+    color: COLORS.textMuted,
+    fontSize: 14,
+    fontWeight: '600',
   },
-  sectionHeader: {
-    fontSize: 22,
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+    marginTop: SPACING.sm,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: COLORS.primary,
+    letterSpacing: -0.5,
+    marginLeft: 8,
+  },
+  sectionSubtitle: {
+    fontSize: 13,
+    color: COLORS.textMuted,
+    fontWeight: '600',
+  },
+  list: {
+    marginTop: SPACING.sm,
+  },
+  categoryCard: {
+    marginVertical: 4,
+    backgroundColor: COLORS.card,
+    borderColor: COLORS.border,
+  },
+  categoryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  categoryName: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: COLORS.primary,
+  },
+  cargoCard: {
+    marginVertical: 4,
+    backgroundColor: COLORS.card,
+  },
+  cargoDesc: {
+    fontSize: 12,
+    color: COLORS.textMuted,
+    marginTop: 2,
+    lineHeight: 16,
+    fontWeight: '500',
+  },
+  optionBox: {
+    backgroundColor: COLORS.card,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: SPACING.md,
+    marginTop: SPACING.md,
+  },
+  optionLabel: {
+    fontSize: 14,
     fontWeight: '800',
     color: COLORS.primary,
     marginBottom: SPACING.sm,
   },
-  sectionSub: {
-    fontSize: 14,
-    color: COLORS.muted,
-    marginBottom: SPACING.md,
-  },
-  cardItem: {
+  loadTabs: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: COLORS.surfaceHighlight,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 12,
-    padding: SPACING.md,
-    marginBottom: SPACING.md,
+    backgroundColor: '#F3F4F6',
+    padding: 4,
+    borderRadius: BORDER_RADIUS.sm,
   },
-  cardSelected: {
-    borderColor: COLORS.accent,
-    backgroundColor: '#F0FDF4',
-  },
-  cardText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: COLORS.foreground,
-  },
-  cardSubtext: {
-    fontSize: 12,
-    color: COLORS.muted,
-    marginTop: 2,
-  },
-  loadTypeSection: {
-    marginTop: SPACING.md,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: COLORS.foreground,
-    marginBottom: SPACING.sm,
-  },
-  loadRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: SPACING.lg,
-  },
-  loadBtn: {
+  loadTabBtn: {
     flex: 1,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 8,
     paddingVertical: 10,
+    borderRadius: BORDER_RADIUS.xs,
     alignItems: 'center',
-    marginHorizontal: 4,
-    backgroundColor: COLORS.background,
   },
-  loadBtnSelected: {
-    borderColor: COLORS.primary,
-    backgroundColor: COLORS.primary,
+  loadTabBtnSelected: {
+    backgroundColor: COLORS.white,
+    ...SHADOWS.sm,
   },
-  loadBtnText: {
+  loadTabText: {
     fontSize: 12,
     fontWeight: '700',
-    color: COLORS.muted,
+    color: COLORS.textMuted,
   },
-  loadBtnTextSelected: {
-    color: COLORS.white,
+  loadTabTextSelected: {
+    color: COLORS.primary,
+    fontWeight: '800',
   },
-  primaryBtn: {
-    backgroundColor: COLORS.primary,
-    borderRadius: 8,
-    paddingVertical: 14,
+  locContainer: {
+    backgroundColor: COLORS.card,
+  },
+  locHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: SPACING.md,
-    ...SHADOWS.md,
+    marginBottom: 4,
   },
-  primaryBtnText: {
-    color: COLORS.white,
-    fontSize: 16,
-    fontWeight: '600',
+  locLabel: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: COLORS.textMuted,
+    textTransform: 'uppercase',
   },
-  inputContainer: {
-    marginBottom: SPACING.md,
-    position: 'relative',
+  gpsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 2,
   },
-  input: {
-    backgroundColor: COLORS.inputBg,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: COLORS.foreground,
+  gpsBtnText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: COLORS.secondary,
   },
   suggestionsBox: {
-    position: 'absolute',
-    top: 72,
-    left: 0,
-    right: 0,
-    backgroundColor: COLORS.background,
-    borderWidth: 1,
+    backgroundColor: COLORS.white,
+    borderRadius: BORDER_RADIUS.sm,
+    borderWidth: 1.5,
     borderColor: COLORS.border,
-    borderRadius: 8,
-    zIndex: 999,
-    ...SHADOWS.md,
+    maxHeight: 180,
+    overflow: 'hidden',
+    marginTop: SPACING.xs,
   },
   suggestionItem: {
     flexDirection: 'row',
@@ -707,117 +878,175 @@ const styles = StyleSheet.create({
     borderBottomColor: COLORS.border,
   },
   suggestionText: {
-    fontSize: 14,
-    color: COLORS.foreground,
+    fontSize: 13,
+    color: COLORS.primary,
+    fontWeight: '600',
     flex: 1,
   },
-  summaryBox: {
-    backgroundColor: COLORS.surface,
-    padding: SPACING.md,
-    borderRadius: 8,
-    marginBottom: SPACING.md,
+  routingBtn: {
+    width: '100%',
   },
-  summaryText: {
-    fontSize: 14,
+  routeSummaryBox: {
+    backgroundColor: COLORS.card,
+    borderRadius: BORDER_RADIUS.sm,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
+    alignItems: 'center',
+  },
+  routeSummaryText: {
+    fontSize: 13,
+    color: COLORS.textMuted,
     fontWeight: '600',
-    color: COLORS.muted,
-    textAlign: 'center',
+  },
+  boldText: {
+    color: COLORS.primary,
+    fontWeight: '800',
   },
   vehicleCard: {
+    marginVertical: 4,
+    backgroundColor: COLORS.card,
+  },
+  vehicleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.background,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 12,
-    padding: SPACING.md,
-    marginBottom: SPACING.md,
-    ...SHADOWS.sm,
   },
-  vehicleCardSelected: {
-    borderColor: COLORS.primary,
-    backgroundColor: COLORS.surfaceHighlight,
+  vehicleGraphic: {
+    width: 48,
+    height: 48,
+    borderRadius: BORDER_RADIUS.sm,
+    backgroundColor: '#F3F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  vehicleEmoji: {
-    fontSize: 32,
+  vehicleIcon: {
+    fontSize: 24,
   },
   vehicleName: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: COLORS.foreground,
+    fontSize: 15,
+    fontWeight: '900',
+    color: COLORS.primary,
   },
-  vehicleInfo: {
+  vehicleCap: {
     fontSize: 12,
-    color: COLORS.muted,
+    fontWeight: '700',
+    color: COLORS.secondary,
     marginTop: 2,
   },
-  vehiclePrice: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: COLORS.primary,
+  vehicleDesc: {
+    fontSize: 10,
+    color: COLORS.textMuted,
+    marginTop: 2,
+    fontWeight: '500',
   },
-  detailsBox: {
-    backgroundColor: COLORS.surface,
-    padding: SPACING.md,
-    borderRadius: 12,
-    marginBottom: SPACING.md,
-  },
-  detailsLabel: {
-    fontSize: 12,
-    color: COLORS.muted,
-    fontWeight: '600',
-    marginTop: SPACING.xs,
-  },
-  detailsVal: {
-    fontSize: 14,
-    color: COLORS.foreground,
-    fontWeight: '700',
-    marginBottom: SPACING.sm,
-  },
-  pricingBox: {
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 12,
-    padding: SPACING.md,
-    marginBottom: SPACING.md,
-  },
-  pricingTitle: {
+  vehicleCost: {
     fontSize: 16,
+    fontWeight: '900',
+    color: COLORS.primary,
+  },
+  summaryDetailsCard: {
+    backgroundColor: COLORS.card,
+  },
+  summaryLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: COLORS.textMuted,
+    textTransform: 'uppercase',
+    marginTop: 10,
+  },
+  summaryValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.primary,
+    marginTop: 2,
+  },
+  pricingCard: {
+    backgroundColor: COLORS.white,
+    borderColor: COLORS.border,
+    borderWidth: 1.5,
+    marginVertical: SPACING.md,
+  },
+  priceSectionTitle: {
+    fontSize: 15,
     fontWeight: '800',
     color: COLORS.primary,
-    marginBottom: SPACING.md,
+    borderBottomWidth: 1,
+    borderColor: COLORS.border,
+    paddingBottom: 8,
+    marginBottom: 8,
   },
-  priceRow: {
+  pricingRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginVertical: 4,
   },
-  priceLabel: {
-    fontSize: 14,
-    color: COLORS.muted,
-  },
-  priceVal: {
-    fontSize: 14,
-    color: COLORS.foreground,
+  pricingLabel: {
+    fontSize: 13,
+    color: COLORS.textMuted,
     fontWeight: '600',
+  },
+  pricingValue: {
+    fontSize: 13,
+    color: COLORS.primary,
+    fontWeight: '700',
   },
   totalRow: {
     borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-    marginTop: SPACING.sm,
-    paddingTop: SPACING.sm,
+    borderColor: COLORS.border,
+    paddingTop: 8,
+    marginTop: 8,
   },
   totalLabel: {
-    fontSize: 16,
+    fontSize: 14,
+    color: COLORS.primary,
+    fontWeight: '800',
+  },
+  totalValue: {
+    fontSize: 18,
+    color: COLORS.secondary,
+    fontWeight: '900',
+  },
+  reviewOptionBox: {
+    backgroundColor: COLORS.card,
+    borderRadius: BORDER_RADIUS.md,
+    borderWidth: 1.5,
+    borderColor: COLORS.border,
+    padding: SPACING.md,
+    marginVertical: 4,
+  },
+  optionTitle: {
+    fontSize: 14,
     fontWeight: '800',
     color: COLORS.primary,
+    marginBottom: SPACING.sm,
   },
-  totalVal: {
-    fontSize: 20,
-    fontWeight: '900',
-    color: COLORS.accent,
+  toggleRow: {
+    flexDirection: 'row',
+    backgroundColor: '#F3F4F6',
+    borderRadius: BORDER_RADIUS.sm,
+    padding: 3,
   },
-  optionBox: {
-    marginBottom: SPACING.md,
+  toggleBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderRadius: BORDER_RADIUS.xs,
+  },
+  toggleBtnSelected: {
+    backgroundColor: COLORS.white,
+    ...SHADOWS.sm,
+  },
+  toggleBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: COLORS.textMuted,
+  },
+  toggleBtnTextSelected: {
+    color: COLORS.primary,
+    fontWeight: '800',
+  },
+  confirmBtn: {
+    marginTop: SPACING.lg,
   },
 });
