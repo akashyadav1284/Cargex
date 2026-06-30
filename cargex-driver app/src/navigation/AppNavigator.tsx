@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { Platform } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '../contexts/AuthContext';
-import { COLORS } from '../constants/theme';
+import { COLORS, SHADOWS } from '../constants/theme';
 import { Home as HomeIcon, ClipboardList, History as HistoryIcon, User, Settings } from 'lucide-react-native';
 
 // Import Screens
@@ -16,6 +18,8 @@ import ProfileScreen from '../screens/ProfileScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import TripDetailsScreen from '../screens/TripDetailsScreen';
 import DocumentUploadScreen from '../screens/DocumentUploadScreen';
+import SplashScreen from '../screens/SplashScreen';
+import OnboardingScreen from '../screens/OnboardingScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -25,17 +29,29 @@ function MainTabNavigator() {
     <Tab.Navigator
       screenOptions={{
         tabBarActiveTintColor: COLORS.primary,
-        tabBarInactiveTintColor: COLORS.muted,
+        tabBarInactiveTintColor: COLORS.textMuted,
         tabBarStyle: {
-          backgroundColor: COLORS.background,
-          borderTopColor: COLORS.border,
+          position: 'absolute',
+          bottom: Platform.OS === 'ios' ? 24 : 16,
+          left: 16,
+          right: 16,
+          backgroundColor: COLORS.card,
+          borderRadius: 16,
+          height: 64,
+          paddingBottom: Platform.OS === 'ios' ? 12 : 8,
+          paddingTop: 8,
+          borderTopWidth: 0,
+          ...SHADOWS.lg,
         },
         headerStyle: {
           backgroundColor: COLORS.background,
           shadowColor: 'transparent',
+          elevation: 0,
         },
         headerTitleStyle: {
-          fontWeight: '800',
+          fontWeight: '900',
+          fontSize: 18,
+          color: COLORS.primary,
         },
       }}
     >
@@ -45,7 +61,7 @@ function MainTabNavigator() {
         options={{
           title: 'Home',
           headerShown: false,
-          tabBarIcon: ({ color, size }: { color: string; size: number }) => <HomeIcon size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <HomeIcon size={22} color={color} />,
         }}
       />
       <Tab.Screen
@@ -53,17 +69,17 @@ function MainTabNavigator() {
         component={BookingsScreen}
         options={{
           title: 'Bookings',
-          headerTitle: 'Active Dispatches',
-          tabBarIcon: ({ color, size }: { color: string; size: number }) => <ClipboardList size={size} color={color} />,
+          headerTitle: 'Active Queue',
+          tabBarIcon: ({ color, size }) => <ClipboardList size={22} color={color} />,
         }}
       />
       <Tab.Screen
         name="HistoryTab"
         component={HistoryScreen}
         options={{
-          title: 'History',
+          title: 'Earnings',
           headerTitle: 'Earnings History',
-          tabBarIcon: ({ color, size }: { color: string; size: number }) => <HistoryIcon size={size} color={color} />,
+          tabBarIcon: ({ color, size }) => <HistoryIcon size={22} color={color} />,
         }}
       />
       <Tab.Screen
@@ -71,8 +87,8 @@ function MainTabNavigator() {
         component={ProfileScreen}
         options={{
           title: 'Profile',
-          headerTitle: 'Driver Profile',
-          tabBarIcon: ({ color, size }: { color: string; size: number }) => <User size={size} color={color} />,
+          headerTitle: 'Partner Profile',
+          tabBarIcon: ({ color, size }) => <User size={22} color={color} />,
         }}
       />
       <Tab.Screen
@@ -80,8 +96,8 @@ function MainTabNavigator() {
         component={SettingsScreen}
         options={{
           title: 'Settings',
-          headerTitle: 'Driver Settings',
-          tabBarIcon: ({ color, size }: { color: string; size: number }) => <Settings size={size} color={color} />,
+          headerTitle: 'System Settings',
+          tabBarIcon: ({ color, size }) => <Settings size={22} color={color} />,
         }}
       />
     </Tab.Navigator>
@@ -89,10 +105,37 @@ function MainTabNavigator() {
 }
 
 export default function AppNavigator() {
-  const { token, isLoading } = useAuth();
+  const { token, isLoading: authLoading } = useAuth();
+  const [showSplash, setShowSplash] = useState(true);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [isOnboardingChecked, setIsOnboardingChecked] = useState(false);
 
-  if (isLoading) {
-    return null; // Wait for storage check
+  useEffect(() => {
+    const checkOnboarding = async () => {
+      try {
+        const completed = await AsyncStorage.getItem('onboarding_completed');
+        if (completed !== 'true') {
+          setShowOnboarding(true);
+        }
+      } catch (e) {
+        console.error('Failed to check onboarding state', e);
+      } finally {
+        setIsOnboardingChecked(true);
+      }
+    };
+    checkOnboarding();
+  }, []);
+
+  if (showSplash) {
+    return <SplashScreen onFinish={() => setShowSplash(false)} />;
+  }
+
+  if (showOnboarding && isOnboardingChecked) {
+    return <OnboardingScreen onFinish={() => setShowOnboarding(false)} />;
+  }
+
+  if (authLoading || !isOnboardingChecked) {
+    return null; // Wait for async storage sync checks
   }
 
   return (
@@ -103,7 +146,7 @@ export default function AppNavigator() {
           <>
             <Stack.Screen name="MainTabs" component={MainTabNavigator} />
             <Stack.Screen name="TripDetails" component={TripDetailsScreen} />
-            <Stack.Screen name="DocumentUpload" component={DocumentUploadScreen} options={{ headerShown: true, title: 'Vetting Documents' }} />
+            <Stack.Screen name="DocumentUpload" component={DocumentUploadScreen} />
           </>
         ) : (
           // Unauthenticated Screen Flows

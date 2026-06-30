@@ -1,7 +1,22 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, TextInput, View, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, SafeAreaView, Alert } from 'react-native';
+import { 
+  StyleSheet, 
+  Text, 
+  View, 
+  KeyboardAvoidingView, 
+  Platform, 
+  ScrollView, 
+  SafeAreaView, 
+  StatusBar,
+  TouchableOpacity,
+  Alert
+} from 'react-native';
+import { User, Mail, Phone, Lock, ClipboardCheck, ShieldAlert } from 'lucide-react-native';
 import { useAuth } from '../contexts/AuthContext';
-import { COLORS, SPACING, SHADOWS } from '../constants/theme';
+import { COLORS, SPACING, SHADOWS, BORDER_RADIUS } from '../constants/theme';
+import Button from '../components/Button';
+import Input from '../components/Input';
+import Card from '../components/Card';
 
 const VEHICLE_TYPES = [
   "Tata Ace",
@@ -46,102 +61,115 @@ export default function RegisterScreen({ navigation }: any) {
 
   return (
     <SafeAreaView style={styles.safe}>
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
       >
-        <ScrollView contentContainerStyle={styles.container}>
+        <ScrollView 
+          contentContainerStyle={styles.container}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
           <View style={styles.header}>
-            <Text style={styles.logo}>Cargex Driver</Text>
-            <Text style={styles.subtitle}>Apply for a driver account to join the Cargex logistics network.</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Login')} activeOpacity={0.7} style={styles.backBtn}>
+              <Text style={styles.backText}>Back to Sign In</Text>
+            </TouchableOpacity>
+            <Text style={styles.logo}>Join Cargex Network</Text>
+            <Text style={styles.subtitle}>Apply for a logistics partner account and earn daily incentives.</Text>
           </View>
 
           {errorMsg ? (
-            <View style={styles.errorContainer}>
-              <Text style={styles.errorText}>{errorMsg}</Text>
-            </View>
+            <Card variant="solid" padding="md" style={styles.errorCard}>
+              <View style={styles.errorRow}>
+                <ShieldAlert size={20} color={COLORS.error} style={{ marginRight: 8 }} />
+                <Text style={styles.errorText}>{errorMsg}</Text>
+              </View>
+            </Card>
           ) : null}
 
-          <View style={styles.form}>
-            <Text style={styles.label}>Full Name</Text>
-            <TextInput
-              style={styles.input}
+          <Card variant="outlined" padding="lg" style={styles.formCard}>
+            <Input
+              label="Full Name"
               placeholder="e.g. Rajesh Kumar"
-              placeholderTextColor={COLORS.muted}
               value={name}
               onChangeText={setName}
+              icon={<User size={18} color={COLORS.textLight} />}
             />
 
-            <Text style={styles.label}>Email Address</Text>
-            <TextInput
-              style={styles.input}
+            <Input
+              label="Email Address"
               placeholder="e.g. rajesh@example.com"
-              placeholderTextColor={COLORS.muted}
               value={email}
               onChangeText={setEmail}
               autoCapitalize="none"
               keyboardType="email-address"
+              icon={<Mail size={18} color={COLORS.textLight} />}
             />
 
-            <Text style={styles.label}>Phone Number</Text>
-            <TextInput
-              style={styles.input}
+            <Input
+              label="Phone Number"
               placeholder="e.g. +91 9467658854"
-              placeholderTextColor={COLORS.muted}
               value={phone}
               onChangeText={setPhone}
               keyboardType="phone-pad"
+              icon={<Phone size={18} color={COLORS.textLight} />}
             />
 
-            <Text style={styles.label}>Password</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Choose a password"
-              placeholderTextColor={COLORS.muted}
+            <Input
+              label="Password"
+              placeholder="Choose a strong password"
               value={password}
               onChangeText={setPassword}
               secureTextEntry
               autoCapitalize="none"
+              icon={<Lock size={18} color={COLORS.textLight} />}
             />
 
-            <Text style={styles.label}>Vehicle Type</Text>
-            <View style={styles.vehicleSelectBox}>
-              {VEHICLE_TYPES.map((type) => (
-                <TouchableOpacity
-                  key={type}
-                  style={[
-                    styles.vehicleBtn,
-                    vehicleType === type && styles.vehicleBtnSelected
-                  ]}
-                  onPress={() => setVehicleType(type)}
-                >
-                  <Text style={[styles.vehicleBtnText, vehicleType === type && styles.vehicleBtnTextSelected]}>
-                    {type}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+            <Text style={styles.label}>Select Registered Vehicle Type</Text>
+            <View style={styles.vehicleGrid}>
+              {VEHICLE_TYPES.map((type) => {
+                const isSelected = vehicleType === type;
+                return (
+                  <TouchableOpacity
+                    key={type}
+                    style={[
+                      styles.vehicleBtn,
+                      isSelected && styles.vehicleBtnSelected
+                    ]}
+                    onPress={() => setVehicleType(type)}
+                    activeOpacity={0.8}
+                  >
+                    <Text 
+                      style={[
+                        styles.vehicleBtnText, 
+                        isSelected && styles.vehicleBtnTextSelected
+                      ]}
+                    >
+                      {type}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
 
-            <TouchableOpacity
-              style={styles.button}
+            <Button
+              title="Submit Partner Application"
               onPress={handleRegister}
-              disabled={isLoading}
-              activeOpacity={0.8}
-            >
-              {isLoading ? (
-                <ActivityIndicator color={COLORS.white} />
-              ) : (
-                <Text style={styles.buttonText}>Submit Application</Text>
-              )}
-            </TouchableOpacity>
+              loading={isLoading}
+              variant="accent"
+              size="lg"
+              style={styles.submitBtn}
+              icon={<ClipboardCheck size={18} color={COLORS.white} />}
+            />
 
             <View style={styles.footer}>
               <Text style={styles.footerText}>Already registered? </Text>
-              <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-                <Text style={styles.footerLink}>Log In</Text>
+              <TouchableOpacity onPress={() => navigation.navigate('Login')} activeOpacity={0.7}>
+                <Text style={styles.footerLink}>Sign In</Text>
               </TouchableOpacity>
             </View>
-          </View>
+          </Card>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -154,112 +182,106 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
   },
   container: {
-    flexGrow: 1,
     paddingHorizontal: SPACING.lg,
     paddingVertical: SPACING.xl,
-    justifyContent: 'center',
   },
   header: {
-    marginBottom: SPACING.md,
+    marginBottom: SPACING.lg,
+    marginTop: SPACING.sm,
+  },
+  backBtn: {
+    marginBottom: SPACING.sm,
+  },
+  backText: {
+    color: COLORS.textMuted,
+    fontWeight: '700',
+    fontSize: 13,
   },
   logo: {
-    fontSize: 40,
+    fontSize: 28,
     fontWeight: '900',
     color: COLORS.primary,
-    letterSpacing: -1,
+    letterSpacing: -0.5,
   },
   subtitle: {
-    fontSize: 16,
-    color: COLORS.muted,
-    marginTop: SPACING.xs,
-    lineHeight: 22,
+    fontSize: 14,
+    color: COLORS.textMuted,
+    marginTop: 4,
+    lineHeight: 20,
+    fontWeight: '500',
   },
-  errorContainer: {
+  errorCard: {
     backgroundColor: '#FEF2F2',
     borderWidth: 1,
     borderColor: '#FCA5A5',
-    padding: SPACING.md,
-    borderRadius: 8,
     marginBottom: SPACING.lg,
   },
-  errorText: {
-    color: COLORS.red,
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  form: {
-    marginTop: SPACING.sm,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.foreground,
-    marginBottom: SPACING.xs,
-    marginTop: SPACING.sm,
-  },
-  input: {
-    backgroundColor: COLORS.inputBg,
-    borderRadius: 8,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: COLORS.foreground,
-    borderWidth: 1,
-    borderColor: 'transparent',
-  },
-  vehicleSelectBox: {
+  errorRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginTop: 4,
-  },
-  vehicleBtn: {
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    marginRight: 6,
-    marginBottom: 6,
-    backgroundColor: COLORS.background,
-  },
-  vehicleBtnSelected: {
-    borderColor: COLORS.primary,
-    backgroundColor: COLORS.primary,
-  },
-  vehicleBtnText: {
-    fontSize: 12,
-    color: COLORS.muted,
-    fontWeight: '600',
-  },
-  vehicleBtnTextSelected: {
-    color: COLORS.white,
-  },
-  button: {
-    backgroundColor: COLORS.primary,
-    borderRadius: 8,
-    paddingVertical: 14,
     alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: SPACING.lg,
+  },
+  errorText: {
+    color: COLORS.error,
+    fontSize: 13,
+    fontWeight: '700',
+    flex: 1,
+  },
+  formCard: {
+    backgroundColor: COLORS.card,
     ...SHADOWS.md,
   },
-  buttonText: {
-    color: COLORS.white,
-    fontSize: 16,
-    fontWeight: '600',
+  label: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.textMuted,
+    marginBottom: SPACING.sm,
+    marginTop: SPACING.sm,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  vehicleGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: SPACING.sm,
+    marginBottom: SPACING.lg,
+  },
+  vehicleBtn: {
+    backgroundColor: COLORS.inputBg,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: BORDER_RADIUS.sm,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+  },
+  vehicleBtnSelected: {
+    backgroundColor: COLORS.card,
+    borderColor: COLORS.accent,
+  },
+  vehicleBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.textMuted,
+  },
+  vehicleBtnTextSelected: {
+    color: COLORS.accent,
+  },
+  submitBtn: {
+    marginTop: SPACING.sm,
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
+    alignItems: 'center',
     marginTop: SPACING.lg,
   },
   footerText: {
-    color: COLORS.muted,
-    fontSize: 14,
+    fontSize: 13,
+    color: COLORS.textMuted,
+    fontWeight: '500',
   },
   footerLink: {
+    fontSize: 13,
     color: COLORS.accent,
-    fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '800',
   },
 });

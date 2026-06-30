@@ -1,9 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, ScrollView, SafeAreaView, ActivityIndicator, Alert } from 'react-native';
+import { 
+  StyleSheet, 
+  Text, 
+  View, 
+  ScrollView, 
+  SafeAreaView, 
+  ActivityIndicator, 
+  Alert,
+  StatusBar
+} from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 import apiClient from '../api/apiClient';
-import { COLORS, SPACING, SHADOWS } from '../constants/theme';
-import { User, Mail, Phone, MapPin, Save, LogOut, FileText } from 'lucide-react-native';
+import { COLORS, SPACING, SHADOWS, BORDER_RADIUS } from '../constants/theme';
+import { Mail, Phone, MapPin, Save, LogOut, FileText } from 'lucide-react-native';
+import Card from '../components/Card';
+import Input from '../components/Input';
+import Button from '../components/Button';
+import Avatar from '../components/Avatar';
+import Header from '../components/Header';
 
 export default function SettingsScreen({ navigation }: any) {
   const { driver, reloadProfile, logout } = useAuth();
@@ -16,7 +30,6 @@ export default function SettingsScreen({ navigation }: any) {
   useEffect(() => {
     if (driver) {
       setPhone(driver.phone || '');
-      // Check if address/city exist in driver object
       setAddress((driver as any).address || '');
       setCity((driver as any).city || '');
     }
@@ -41,24 +54,34 @@ export default function SettingsScreen({ navigation }: any) {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <ScrollView contentContainerStyle={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
+      <Header title="Settings" />
+      
+      <ScrollView 
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Avatar block */}
         <View style={styles.avatarSection}>
-          <View style={styles.avatarLarge}>
-            <Text style={styles.avatarLargeText}>
-              {((driver?.name || driver?.fullName || 'D').charAt(0)).toUpperCase()}
-            </Text>
-          </View>
+          <Avatar 
+            name={driver?.name || 'Driver'} 
+            source={driver?.profileImage}
+            size={76} 
+          />
           <Text style={styles.driverName}>{driver?.name || 'Driver Partner'}</Text>
-          <Text style={styles.driverRole}>Vetted Logistics Associate</Text>
+          <Text style={styles.driverRole}>Vetted Logistics Partner</Text>
         </View>
 
-        <View style={styles.formCard}>
-          <Text style={styles.cardHeader}>Account Details</Text>
+        {/* Account settings card */}
+        <Card variant="outlined" padding="lg" style={styles.formCard}>
+          <Text style={styles.cardHeader}>Account Profiles</Text>
 
           {/* Email (Read Only) */}
           <View style={styles.fieldRow}>
-            <Mail size={16} color={COLORS.muted} style={styles.fieldIcon} />
-            <View style={{ flex: 1 }}>
+            <View style={[styles.fieldIconBg, { backgroundColor: COLORS.surface }]}>
+              <Mail size={16} color={COLORS.primary} />
+            </View>
+            <View style={{ flex: 1, marginLeft: 12 }}>
               <Text style={styles.fieldLabel}>Email Address (Protected)</Text>
               <Text style={styles.fieldReadVal}>{driver?.email || 'N/A'}</Text>
             </View>
@@ -66,66 +89,59 @@ export default function SettingsScreen({ navigation }: any) {
 
           <View style={styles.divider} />
 
-          {/* Phone */}
-          <Text style={styles.inputLabel}>Mobile Phone</Text>
-          <View style={styles.inputWrapper}>
-            <Phone size={16} color={COLORS.muted} style={{ marginRight: 8 }} />
-            <TextInput
-              style={styles.textInput}
-              value={phone}
-              onChangeText={setPhone}
-              keyboardType="phone-pad"
-            />
-          </View>
+          <Input
+            label="Mobile Phone"
+            value={phone}
+            onChangeText={setPhone}
+            keyboardType="phone-pad"
+            icon={<Phone size={16} color={COLORS.textLight} />}
+          />
 
-          {/* Address */}
-          <Text style={styles.inputLabel}>Registered Address</Text>
-          <View style={styles.inputWrapper}>
-            <MapPin size={16} color={COLORS.muted} style={{ marginRight: 8 }} />
-            <TextInput
-              style={styles.textInput}
-              value={address}
-              onChangeText={setAddress}
-              placeholder="Enter street details"
-              placeholderTextColor={COLORS.muted}
-            />
-          </View>
+          <Input
+            label="Registered Address"
+            value={address}
+            onChangeText={setAddress}
+            placeholder="Enter street details"
+            icon={<MapPin size={16} color={COLORS.textLight} />}
+          />
 
-          {/* City */}
-          <Text style={styles.inputLabel}>Working City</Text>
-          <View style={styles.inputWrapper}>
-            <MapPin size={16} color={COLORS.muted} style={{ marginRight: 8 }} />
-            <TextInput
-              style={styles.textInput}
-              value={city}
-              onChangeText={setCity}
-              placeholder="Enter city"
-              placeholderTextColor={COLORS.muted}
-            />
-          </View>
+          <Input
+            label="Working City"
+            value={city}
+            onChangeText={setCity}
+            placeholder="Enter city name"
+            icon={<MapPin size={16} color={COLORS.textLight} />}
+          />
 
-          {isLoading ? (
-            <ActivityIndicator size="small" color={COLORS.accent} style={{ marginTop: 20 }} />
-          ) : (
-            <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
-              <Save size={18} color={COLORS.white} style={{ marginRight: 8 }} />
-              <Text style={styles.saveBtnText}>Save Profiles</Text>
-            </TouchableOpacity>
-          )}
-        </View>
+          <Button
+            title="Save Profiles"
+            onPress={handleSave}
+            loading={isLoading}
+            variant="accent"
+            size="md"
+            style={styles.saveBtn}
+            icon={<Save size={16} color={COLORS.white} />}
+          />
+        </Card>
 
-        <TouchableOpacity 
-          style={styles.documentsBtn} 
+        {/* Quick navigation actions */}
+        <Button
+          title="Manage Vetting Documents"
           onPress={() => navigation.navigate('DocumentUpload')}
-        >
-          <FileText size={18} color={COLORS.primary} style={{ marginRight: 8 }} />
-          <Text style={styles.documentsBtnText}>Manage Vetting Documents</Text>
-        </TouchableOpacity>
+          variant="outline"
+          size="md"
+          style={styles.documentsBtn}
+          icon={<FileText size={16} color={COLORS.primary} />}
+        />
 
-        <TouchableOpacity style={styles.logoutBtn} onPress={logout}>
-          <LogOut size={18} color={COLORS.red} style={{ marginRight: 8 }} />
-          <Text style={styles.logoutBtnText}>Logout from Driver Account</Text>
-        </TouchableOpacity>
+        <Button
+          title="Logout from Account"
+          onPress={logout}
+          variant="danger"
+          size="md"
+          style={styles.logoutBtn}
+          icon={<LogOut size={16} color={COLORS.white} />}
+        />
       </ScrollView>
     </SafeAreaView>
   );
@@ -136,146 +152,79 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
-  documentsBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: COLORS.background,
-    borderWidth: 1,
-    borderColor: COLORS.primary,
-    borderRadius: 10,
-    paddingVertical: 12,
-    marginTop: SPACING.md,
-    ...SHADOWS.sm,
-  },
-  documentsBtnText: {
-    color: COLORS.primary,
-    fontWeight: '700',
-    fontSize: 14,
-  },
   container: {
     padding: SPACING.md,
+    paddingBottom: 110,
   },
   avatarSection: {
     alignItems: 'center',
-    marginVertical: SPACING.lg,
-  },
-  avatarLarge: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: COLORS.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...SHADOWS.md,
-  },
-  avatarLargeText: {
-    color: COLORS.white,
-    fontSize: 32,
-    fontWeight: '800',
+    marginVertical: SPACING.md,
   },
   driverName: {
     fontSize: 20,
-    fontWeight: '800',
-    color: COLORS.foreground,
+    fontWeight: '900',
+    color: COLORS.primary,
     marginTop: SPACING.sm,
   },
   driverRole: {
     fontSize: 12,
-    color: COLORS.accent,
-    fontWeight: '700',
+    color: COLORS.textMuted,
+    fontWeight: '600',
     marginTop: 2,
-    letterSpacing: 1,
   },
   formCard: {
-    backgroundColor: COLORS.background,
-    borderWidth: 1,
+    backgroundColor: COLORS.card,
     borderColor: COLORS.border,
-    borderRadius: 12,
-    padding: SPACING.md,
-    ...SHADOWS.sm,
+    borderWidth: 1,
+    ...SHADOWS.md,
+    marginBottom: SPACING.md,
   },
   cardHeader: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '800',
     color: COLORS.primary,
     marginBottom: SPACING.md,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   fieldRow: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: SPACING.xs,
   },
-  fieldIcon: {
-    marginRight: 12,
+  fieldIconBg: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   fieldLabel: {
-    fontSize: 11,
-    color: COLORS.muted,
-    fontWeight: '600',
+    fontSize: 10,
+    color: COLORS.textMuted,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   fieldReadVal: {
     fontSize: 14,
-    color: COLORS.foreground,
     fontWeight: '700',
+    color: COLORS.primary,
     marginTop: 2,
   },
   divider: {
-    height: 1,
+    height: 1.5,
     backgroundColor: COLORS.border,
     marginVertical: SPACING.md,
   },
-  inputLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: COLORS.foreground,
-    marginTop: SPACING.sm,
-    marginBottom: SPACING.xs,
-  },
-  inputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: COLORS.inputBg,
-    borderRadius: 8,
-    paddingHorizontal: SPACING.md,
-    marginBottom: SPACING.md,
-  },
-  textInput: {
-    flex: 1,
-    paddingVertical: 10,
-    fontSize: 15,
-    color: COLORS.foreground,
-  },
   saveBtn: {
-    backgroundColor: COLORS.primary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 8,
-    paddingVertical: 12,
-    marginTop: SPACING.md,
-    ...SHADOWS.sm,
+    marginTop: SPACING.sm,
   },
-  saveBtnText: {
-    color: COLORS.white,
-    fontSize: 15,
-    fontWeight: '700',
+  documentsBtn: {
+    marginTop: SPACING.sm,
+    borderColor: COLORS.primary,
   },
   logoutBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#FCA5A5',
-    backgroundColor: '#FEF2F2',
-    borderRadius: 8,
-    paddingVertical: 12,
-    marginTop: SPACING.xl,
-    marginBottom: 40,
-  },
-  logoutBtnText: {
-    color: COLORS.red,
-    fontSize: 15,
-    fontWeight: '700',
+    marginTop: SPACING.md,
   },
 });

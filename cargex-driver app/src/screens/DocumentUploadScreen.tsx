@@ -1,9 +1,21 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, SafeAreaView, Alert, ActivityIndicator } from 'react-native';
-import { COLORS, SPACING, SHADOWS } from '../constants/theme';
+import { 
+  StyleSheet, 
+  Text, 
+  View, 
+  ScrollView, 
+  SafeAreaView, 
+  Alert, 
+  ActivityIndicator,
+  StatusBar
+} from 'react-native';
+import { COLORS, SPACING, BORDER_RADIUS, SHADOWS } from '../constants/theme';
 import { FileText, CheckCircle, UploadCloud, AlertCircle, Eye } from 'lucide-react-native';
 import { useAuth } from '../contexts/AuthContext';
 import apiClient from '../api/apiClient';
+import Card from '../components/Card';
+import Button from '../components/Button';
+import Header from '../components/Header';
 
 export default function DocumentUploadScreen() {
   const { driver, reloadProfile } = useAuth();
@@ -44,7 +56,7 @@ export default function DocumentUploadScreen() {
     if (value) {
       return { text: 'VERIFIED', bg: '#ECFDF5', color: COLORS.accent, Icon: CheckCircle };
     } else {
-      return { text: 'MISSING', bg: '#FEF2F2', color: COLORS.red, Icon: AlertCircle };
+      return { text: 'MISSING', bg: '#FEF2F2', color: COLORS.error, Icon: AlertCircle };
     }
   };
 
@@ -52,10 +64,12 @@ export default function DocumentUploadScreen() {
     const badge = getStatusBadge(currentVal);
 
     return (
-      <View style={styles.docCard}>
+      <Card variant="outlined" style={styles.docCard} padding="md">
         <View style={styles.docHeader}>
-          <FileText size={22} color={COLORS.primary} />
-          <Text style={styles.docLabel}>{label}</Text>
+          <View style={styles.docLabelRow}>
+            <FileText size={22} color={COLORS.primary} />
+            <Text style={styles.docLabel}>{label}</Text>
+          </View>
           <View style={[styles.badge, { backgroundColor: badge.bg }]}>
             <badge.Icon size={12} color={badge.color} style={{ marginRight: 4 }} />
             <Text style={[styles.badgeText, { color: badge.color }]}>{badge.text}</Text>
@@ -65,43 +79,47 @@ export default function DocumentUploadScreen() {
         {currentVal ? (
           <View style={styles.fileDetails}>
             <Text style={styles.fileName}>{currentVal}</Text>
-            <View style={styles.fileActions}>
-              <TouchableOpacity
-                style={styles.actionIconBtn}
-                onPress={() => Alert.alert('Preview Document', `Viewing file from database:\n${currentVal}`)}
-              >
-                <Eye size={16} color={COLORS.primary} />
-                <Text style={styles.actionIconText}>View</Text>
-              </TouchableOpacity>
-            </View>
+            <Button
+              title="View Document"
+              onPress={() => Alert.alert('Preview Document', `Viewing file from database:\n${currentVal}`)}
+              variant="outline"
+              size="sm"
+              style={styles.viewBtn}
+              icon={<Eye size={14} color={COLORS.primary} />}
+            />
           </View>
         ) : (
-          <Text style={styles.noFile}>No document uploaded yet</Text>
+          <View style={styles.noFileRow}>
+            <Text style={styles.noFile}>No document uploaded yet</Text>
+          </View>
         )}
 
-        {isUploading === docType ? (
-          <ActivityIndicator color={COLORS.accent} style={{ marginTop: 10 }} />
-        ) : (
-          <TouchableOpacity
-            style={styles.uploadBtn}
-            onPress={() => handleUpload(docType)}
-          >
-            <UploadCloud size={16} color={COLORS.white} style={{ marginRight: 6 }} />
-            <Text style={styles.uploadBtnText}>
-              {currentVal ? 'Upload New Version' : 'Upload Document'}
-            </Text>
-          </TouchableOpacity>
-        )}
-      </View>
+        <Button
+          title={currentVal ? 'Upload New Version' : 'Upload Document'}
+          onPress={() => handleUpload(docType)}
+          loading={isUploading === docType}
+          variant="accent"
+          size="md"
+          style={styles.uploadBtn}
+          icon={<UploadCloud size={16} color={COLORS.white} />}
+        />
+      </Card>
     );
   };
 
   return (
     <SafeAreaView style={styles.safe}>
-      <ScrollView contentContainerStyle={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Vetting Documents</Text>
-          <Text style={styles.subtitle}>Upload the required credentials to maintain active status in the driver pool.</Text>
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
+      <Header title="Vetting Documents" showBackButton={true} />
+      
+      <ScrollView 
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.infoCard}>
+          <Text style={styles.infoText}>
+            Upload the required credentials to maintain active status in the driver pool. Your documents are verified instantly by compliance systems.
+          </Text>
         </View>
 
         {renderDocRow('profilePhoto', 'Profile Photo', profilePhoto)}
@@ -121,98 +139,90 @@ const styles = StyleSheet.create({
     padding: SPACING.md,
     paddingBottom: 40,
   },
-  header: {
-    marginVertical: SPACING.md,
+  infoCard: {
+    backgroundColor: '#EFF6FF',
+    borderRadius: BORDER_RADIUS.md,
+    padding: SPACING.md,
+    marginBottom: SPACING.lg,
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
   },
-  title: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: COLORS.primary,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: COLORS.muted,
-    marginTop: 4,
-    lineHeight: 20,
+  infoText: {
+    fontSize: 13,
+    color: COLORS.blue,
+    lineHeight: 18,
+    fontWeight: '600',
   },
   docCard: {
-    backgroundColor: COLORS.background,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 12,
-    padding: SPACING.md,
+    backgroundColor: COLORS.card,
     marginBottom: SPACING.md,
-    ...SHADOWS.sm,
+    borderColor: COLORS.border,
+    borderWidth: 1,
+    ...SHADOWS.md,
   },
   docHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: SPACING.md,
+  },
+  docLabelRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   docLabel: {
     fontSize: 16,
     fontWeight: '800',
-    color: COLORS.foreground,
-    marginLeft: 8,
-    flex: 1,
+    color: COLORS.primary,
+    marginLeft: SPACING.sm,
   },
   badge: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 4,
     paddingHorizontal: 8,
-    borderRadius: 6,
+    borderRadius: BORDER_RADIUS.sm,
   },
   badgeText: {
     fontSize: 10,
     fontWeight: '800',
+    letterSpacing: 0.5,
   },
   fileDetails: {
-    backgroundColor: COLORS.surfaceHighlight,
-    borderRadius: 8,
-    padding: SPACING.sm,
-    marginVertical: SPACING.md,
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    padding: SPACING.sm,
+    borderRadius: BORDER_RADIUS.sm,
+    marginBottom: SPACING.md,
   },
   fileName: {
-    fontSize: 13,
-    color: COLORS.muted,
-    fontWeight: '600',
-    flex: 1,
-  },
-  fileActions: {
-    flexDirection: 'row',
-  },
-  actionIconBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginLeft: 8,
-  },
-  actionIconText: {
     fontSize: 12,
-    color: COLORS.primary,
-    marginLeft: 4,
     fontWeight: '600',
+    color: COLORS.textMuted,
+    flex: 1,
+    marginRight: SPACING.sm,
+  },
+  viewBtn: {
+    backgroundColor: COLORS.card,
+    borderColor: COLORS.border,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+  },
+  noFileRow: {
+    backgroundColor: COLORS.surface,
+    paddingVertical: 12,
+    borderRadius: BORDER_RADIUS.sm,
+    alignItems: 'center',
+    marginBottom: SPACING.md,
   },
   noFile: {
-    fontSize: 13,
-    color: COLORS.red,
+    fontSize: 12,
+    color: COLORS.textLight,
     fontWeight: '600',
-    marginVertical: SPACING.md,
   },
   uploadBtn: {
-    backgroundColor: COLORS.primary,
-    borderRadius: 8,
-    paddingVertical: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...SHADOWS.sm,
-  },
-  uploadBtnText: {
-    color: COLORS.white,
-    fontSize: 13,
-    fontWeight: '700',
+    width: '100%',
   },
 });

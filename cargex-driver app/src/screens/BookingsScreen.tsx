@@ -1,9 +1,22 @@
 import React, { useState, useCallback } from 'react';
-import { StyleSheet, Text, View, FlatList, ActivityIndicator, RefreshControl, SafeAreaView, TouchableOpacity } from 'react-native';
+import { 
+  StyleSheet, 
+  Text, 
+  View, 
+  FlatList, 
+  ActivityIndicator, 
+  RefreshControl, 
+  SafeAreaView, 
+  TouchableOpacity,
+  StatusBar
+} from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import apiClient from '../api/apiClient';
-import { COLORS, SPACING, SHADOWS } from '../constants/theme';
-import { ClipboardList, MapPin, ArrowRight, Clock } from 'lucide-react-native';
+import { COLORS, SPACING, SHADOWS, BORDER_RADIUS } from '../constants/theme';
+import { ClipboardList, MapPin, ArrowRight, Compass } from 'lucide-react-native';
+import Card from '../components/Card';
+import Badge from '../components/Badge';
+import Header from '../components/Header';
 
 export default function BookingsScreen({ navigation }: any) {
   const [activeRides, setActiveRides] = useState<any[]>([]);
@@ -41,49 +54,43 @@ export default function BookingsScreen({ navigation }: any) {
   );
 
   const renderActiveItem = ({ item }: { item: any }) => {
-    const isProgress = item.status === 'in_progress';
     const amount = item.pricing?.totalFare || item.price?.total || 0;
 
     return (
       <TouchableOpacity
-        style={styles.card}
         onPress={() => navigation.navigate('TripDetails', { bookingId: item._id })}
         activeOpacity={0.9}
       >
-        <View style={styles.cardHeader}>
-          <View style={styles.badgeRow}>
-            <View style={[styles.statusBadge, isProgress ? styles.badgeProgress : styles.badgeAccepted]}>
-              <Text style={[styles.badgeText, isProgress ? styles.badgeTextProgress : styles.badgeTextAccepted]}>
-                {item.status.toUpperCase()}
-              </Text>
+        <Card variant="outlined" style={styles.card} padding="md">
+          <View style={styles.cardHeader}>
+            <Badge status={item.status} />
+            <Text style={styles.price}>₹{amount.toLocaleString()}</Text>
+          </View>
+
+          {/* Route details */}
+          <View style={styles.routeBox}>
+            <View style={styles.locationRow}>
+              <MapPin size={15} color={COLORS.accent} style={{ marginRight: 8 }} />
+              <Text style={styles.address} numberOfLines={1}>Pickup: {item.pickupLocation?.address}</Text>
+            </View>
+            <View style={styles.line} />
+            <View style={styles.locationRow}>
+              <MapPin size={15} color={COLORS.red} style={{ marginRight: 8 }} />
+              <Text style={styles.address} numberOfLines={1}>Drop: {item.dropLocation?.address}</Text>
             </View>
           </View>
-          <Text style={styles.price}>₹{amount.toLocaleString()}</Text>
-        </View>
 
-        {/* Route Row */}
-        <View style={styles.routeBox}>
-          <View style={styles.locationRow}>
-            <MapPin size={15} color={COLORS.accent} style={{ marginRight: 8 }} />
-            <Text style={styles.address} numberOfLines={1}>{item.pickupLocation?.address}</Text>
+          <View style={styles.cardFooter}>
+            <View>
+              <Text style={styles.infoLabel}>Cargo Category</Text>
+              <Text style={styles.infoVal}>{item.vehicleType} | {item.category || 'Goods'}</Text>
+            </View>
+            <View style={styles.actionBtn}>
+              <Text style={styles.actionBtnText}>Navigate</Text>
+              <ArrowRight size={14} color={COLORS.white} style={{ marginLeft: 4 }} />
+            </View>
           </View>
-          <View style={styles.line} />
-          <View style={styles.locationRow}>
-            <MapPin size={15} color={COLORS.red} style={{ marginRight: 8 }} />
-            <Text style={styles.address} numberOfLines={1}>{item.dropLocation?.address}</Text>
-          </View>
-        </View>
-
-        <View style={styles.cardFooter}>
-          <View>
-            <Text style={styles.infoLabel}>Cargo Detail</Text>
-            <Text style={styles.infoVal}>{item.vehicleType} | {item.category || 'Goods'}</Text>
-          </View>
-          <View style={styles.actionBtn}>
-            <Text style={styles.actionBtnText}>Navigate</Text>
-            <ArrowRight size={14} color={COLORS.white} style={{ marginLeft: 4 }} />
-          </View>
-        </View>
+        </Card>
       </TouchableOpacity>
     );
   };
@@ -91,6 +98,8 @@ export default function BookingsScreen({ navigation }: any) {
   if (isLoading && !isRefreshing) {
     return (
       <SafeAreaView style={styles.safe}>
+        <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
+        <Header title="Active Queue" />
         <View style={styles.center}>
           <ActivityIndicator size="large" color={COLORS.accent} />
           <Text style={styles.loadingText}>Syncing active dispatches...</Text>
@@ -101,11 +110,8 @@ export default function BookingsScreen({ navigation }: any) {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Active Queue</Text>
-        <Text style={styles.subtitle}>Manage accepted orders, pickups, and in-progress navigation.</Text>
-      </View>
-
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
+      <Header title="Active Queue" />
       <FlatList
         data={activeRides}
         renderItem={renderActiveItem}
@@ -122,11 +128,13 @@ export default function BookingsScreen({ navigation }: any) {
           />
         }
         ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <ClipboardList size={40} color={COLORS.muted} />
-            <Text style={styles.emptyText}>No active dispatches.</Text>
-            <Text style={styles.emptySub}>When you accept a job request from the dashboard, it will appear here in your active queue.</Text>
-          </View>
+          <Card variant="solid" style={styles.emptyContainer} padding="lg">
+            <ClipboardList size={36} color={COLORS.textLight} />
+            <Text style={styles.emptyText}>No active dispatches</Text>
+            <Text style={styles.emptySub}>
+              When you accept a job request from the dashboard, it will appear here in your active queue.
+            </Text>
+          </Card>
         }
       />
     </SafeAreaView>
@@ -145,34 +153,19 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 10,
-    color: COLORS.muted,
-  },
-  header: {
-    paddingHorizontal: SPACING.md,
-    paddingTop: SPACING.sm,
-    paddingBottom: SPACING.md,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: COLORS.primary,
-  },
-  subtitle: {
-    fontSize: 13,
-    color: COLORS.muted,
-    marginTop: 2,
+    color: COLORS.textMuted,
+    fontWeight: '600',
   },
   listContainer: {
     paddingHorizontal: SPACING.md,
-    paddingBottom: 40,
+    paddingTop: SPACING.md,
+    paddingBottom: 110,
   },
   card: {
-    backgroundColor: COLORS.background,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 12,
-    padding: SPACING.md,
+    backgroundColor: COLORS.card,
     marginBottom: SPACING.md,
+    borderColor: COLORS.border,
+    borderWidth: 1,
     ...SHADOWS.md,
   },
   cardHeader: {
@@ -181,33 +174,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: SPACING.sm,
   },
-  badgeRow: {
-    flexDirection: 'row',
-  },
-  statusBadge: {
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 6,
-  },
-  badgeAccepted: {
-    backgroundColor: '#E0F2FE',
-  },
-  badgeProgress: {
-    backgroundColor: '#FEF3C7',
-  },
-  badgeText: {
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  badgeTextAccepted: {
-    color: '#0369A1',
-  },
-  badgeTextProgress: {
-    color: '#B45309',
-  },
   price: {
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: '900',
     color: COLORS.accent,
   },
   routeBox: {
@@ -220,13 +189,13 @@ const styles = StyleSheet.create({
   },
   address: {
     fontSize: 13,
-    color: COLORS.foreground,
+    color: COLORS.text,
     fontWeight: '600',
     flex: 1,
   },
   line: {
     height: 14,
-    width: 1,
+    width: 1.5,
     backgroundColor: COLORS.border,
     marginLeft: 7,
     marginVertical: 2,
@@ -241,13 +210,14 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     fontSize: 10,
-    color: COLORS.muted,
+    color: COLORS.textMuted,
     fontWeight: '600',
+    textTransform: 'uppercase',
   },
   infoVal: {
     fontSize: 12,
-    fontWeight: '700',
-    color: COLORS.foreground,
+    fontWeight: '800',
+    color: COLORS.primary,
     marginTop: 2,
   },
   actionBtn: {
@@ -256,31 +226,36 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 6,
     paddingHorizontal: 12,
-    borderRadius: 6,
+    borderRadius: BORDER_RADIUS.sm,
     ...SHADOWS.sm,
   },
   actionBtnText: {
     color: COLORS.white,
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '800',
   },
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 80,
+    paddingVertical: 40,
+    backgroundColor: COLORS.card,
+    borderColor: COLORS.border,
+    borderWidth: 1,
+    marginTop: SPACING.xl,
   },
   emptyText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: COLORS.foreground,
-    marginTop: 10,
+    fontSize: 15,
+    fontWeight: '800',
+    color: COLORS.primary,
+    marginTop: SPACING.md,
   },
   emptySub: {
     fontSize: 12,
-    color: COLORS.muted,
+    color: COLORS.textMuted,
     textAlign: 'center',
-    marginTop: 6,
-    paddingHorizontal: SPACING.xl,
+    marginTop: SPACING.xs,
+    paddingHorizontal: SPACING.md,
     lineHeight: 18,
+    fontWeight: '500',
   },
 });

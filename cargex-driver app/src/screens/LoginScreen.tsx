@@ -1,7 +1,21 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, TextInput, View, TouchableOpacity, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, SafeAreaView } from 'react-native';
+import { 
+  StyleSheet, 
+  Text, 
+  View, 
+  KeyboardAvoidingView, 
+  Platform, 
+  ScrollView, 
+  SafeAreaView, 
+  StatusBar,
+  TouchableOpacity
+} from 'react-native';
+import { Mail, Lock, LogIn, ShieldAlert } from 'lucide-react-native';
 import { useAuth } from '../contexts/AuthContext';
 import { COLORS, SPACING, SHADOWS } from '../constants/theme';
+import Button from '../components/Button';
+import Input from '../components/Input';
+import Card from '../components/Card';
 
 export default function LoginScreen({ navigation }: any) {
   const { login } = useAuth();
@@ -28,65 +42,71 @@ export default function LoginScreen({ navigation }: any) {
 
   return (
     <SafeAreaView style={styles.safe}>
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
       >
-        <ScrollView contentContainerStyle={styles.container}>
+        <ScrollView 
+          contentContainerStyle={styles.container}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
           <View style={styles.header}>
-            <Text style={styles.logo}>Cargex Driver</Text>
-            <Text style={styles.subtitle}>Sign in to accept ride requests and start earning.</Text>
+            <View style={styles.logoBadge}>
+              <LogIn size={26} color={COLORS.accent} />
+            </View>
+            <Text style={styles.logo}>Cargex <Text style={{ color: COLORS.accent }}>Driver</Text></Text>
+            <Text style={styles.subtitle}>Log in to request dispatches, manage cargo, and start earning today.</Text>
           </View>
 
           {errorMsg ? (
-            <View style={styles.errorContainer}>
-              <Text style={styles.errorText}>{errorMsg}</Text>
-            </View>
+            <Card variant="solid" padding="md" style={styles.errorCard}>
+              <View style={styles.errorRow}>
+                <ShieldAlert size={20} color={COLORS.error} style={{ marginRight: 8 }} />
+                <Text style={styles.errorText}>{errorMsg}</Text>
+              </View>
+            </Card>
           ) : null}
 
-          <View style={styles.form}>
-            <Text style={styles.label}>Email or Phone Number</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. driver@example.com or +91..."
-              placeholderTextColor={COLORS.muted}
+          <Card variant="outlined" padding="lg" style={styles.formCard}>
+            <Input
+              label="Email or Phone Number"
+              placeholder="driver@example.com or +91..."
               value={identifier}
               onChangeText={setIdentifier}
               autoCapitalize="none"
               keyboardType="email-address"
+              icon={<Mail size={18} color={COLORS.textLight} />}
             />
 
-            <Text style={styles.label}>Password</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter your password"
-              placeholderTextColor={COLORS.muted}
+            <Input
+              label="Password"
+              placeholder="Enter your account password"
               value={password}
               onChangeText={setPassword}
               secureTextEntry
               autoCapitalize="none"
+              icon={<Lock size={18} color={COLORS.textLight} />}
             />
 
-            <TouchableOpacity
-              style={styles.button}
+            <Button
+              title="Sign In as Partner"
               onPress={handleLogin}
-              disabled={isLoading}
-              activeOpacity={0.8}
-            >
-              {isLoading ? (
-                <ActivityIndicator color={COLORS.white} />
-              ) : (
-                <Text style={styles.buttonText}>Log In</Text>
-              )}
-            </TouchableOpacity>
+              loading={isLoading}
+              variant="accent"
+              size="lg"
+              style={styles.button}
+              icon={<LogIn size={18} color={COLORS.white} />}
+            />
 
             <View style={styles.footer}>
-              <Text style={styles.footerText}>Don't have a driver account? </Text>
-              <TouchableOpacity onPress={() => navigation.navigate('Register')}>
+              <Text style={styles.footerText}>Don't have a partner account? </Text>
+              <TouchableOpacity onPress={() => navigation.navigate('Register')} activeOpacity={0.7}>
                 <Text style={styles.footerLink}>Apply Now</Text>
               </TouchableOpacity>
             </View>
-          </View>
+          </Card>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -107,77 +127,66 @@ const styles = StyleSheet.create({
   header: {
     marginBottom: SPACING.xl,
   },
+  logoBadge: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: COLORS.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: SPACING.md,
+    ...SHADOWS.sm,
+  },
   logo: {
-    fontSize: 40,
+    fontSize: 32,
     fontWeight: '900',
     color: COLORS.primary,
     letterSpacing: -1,
   },
   subtitle: {
-    fontSize: 16,
-    color: COLORS.muted,
+    fontSize: 14,
+    color: COLORS.textMuted,
     marginTop: SPACING.xs,
-    lineHeight: 22,
+    lineHeight: 20,
+    fontWeight: '500',
   },
-  errorContainer: {
+  errorCard: {
     backgroundColor: '#FEF2F2',
     borderWidth: 1,
     borderColor: '#FCA5A5',
-    padding: SPACING.md,
-    borderRadius: 8,
     marginBottom: SPACING.lg,
   },
-  errorText: {
-    color: COLORS.red,
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  form: {
-    marginTop: SPACING.sm,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.foreground,
-    marginBottom: SPACING.xs,
-    marginTop: SPACING.md,
-  },
-  input: {
-    backgroundColor: COLORS.inputBg,
-    borderRadius: 8,
-    paddingHorizontal: SPACING.md,
-    paddingVertical: 12,
-    fontSize: 16,
-    color: COLORS.foreground,
-    borderWidth: 1,
-    borderColor: 'transparent',
-  },
-  button: {
-    backgroundColor: COLORS.primary,
-    borderRadius: 8,
-    paddingVertical: 14,
+  errorRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: SPACING.xl,
+  },
+  errorText: {
+    color: COLORS.error,
+    fontSize: 13,
+    fontWeight: '700',
+    flex: 1,
+  },
+  formCard: {
+    backgroundColor: COLORS.card,
     ...SHADOWS.md,
   },
-  buttonText: {
-    color: COLORS.white,
-    fontSize: 16,
-    fontWeight: '600',
+  button: {
+    marginTop: SPACING.md,
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: SPACING.xl,
+    alignItems: 'center',
+    marginTop: SPACING.lg,
   },
   footerText: {
-    color: COLORS.muted,
-    fontSize: 14,
+    fontSize: 13,
+    color: COLORS.textMuted,
+    fontWeight: '500',
   },
   footerLink: {
+    fontSize: 13,
     color: COLORS.accent,
-    fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '800',
   },
 });

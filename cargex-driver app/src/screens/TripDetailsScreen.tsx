@@ -5,6 +5,7 @@ import { useSocket } from '../contexts/SocketContext';
 import apiClient from '../api/apiClient';
 import { COLORS, SPACING, SHADOWS } from '../constants/theme';
 import { Phone, MapPin, Check, Key } from 'lucide-react-native';
+import Header from '../components/Header';
 
 export default function TripDetailsScreen({ route, navigation }: any) {
   const { bookingId } = route.params;
@@ -246,6 +247,7 @@ export default function TripDetailsScreen({ route, navigation }: any) {
 
   return (
     <SafeAreaView style={styles.safe}>
+      <Header title="Trip Navigation" showBackButton={true} />
       {/* WebView OSM */}
       <WebView
         style={styles.map}

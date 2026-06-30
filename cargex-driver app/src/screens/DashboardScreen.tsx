@@ -1,11 +1,26 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { StyleSheet, Text, View, Switch, ScrollView, TouchableOpacity, SafeAreaView, ActivityIndicator, Alert, RefreshControl } from 'react-native';
+import { 
+  StyleSheet, 
+  Text, 
+  View, 
+  Switch, 
+  ScrollView, 
+  TouchableOpacity, 
+  SafeAreaView, 
+  StatusBar,
+  Alert, 
+  RefreshControl 
+} from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 import { useSocket } from '../contexts/SocketContext';
 import apiClient from '../api/apiClient';
-import { COLORS, SPACING, SHADOWS } from '../constants/theme';
-import { DollarSign, Landmark, Truck, RefreshCw, LogOut, Check, X } from 'lucide-react-native';
+import { COLORS, SPACING, SHADOWS, BORDER_RADIUS } from '../constants/theme';
+import { DollarSign, Landmark, Truck, Check, X, Star, Bell, PlusCircle, Compass } from 'lucide-react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import Card from '../components/Card';
+import Avatar from '../components/Avatar';
+import Badge from '../components/Badge';
+import Loader from '../components/Loader';
 
 export default function DashboardScreen({ navigation }: any) {
   const { driver, logout } = useAuth();
@@ -134,104 +149,163 @@ export default function DashboardScreen({ navigation }: any) {
   };
 
   const handleDeclineRide = () => {
-    // Just close incoming request overlay client-side
     setActiveBooking(null);
     setRideStatus('idle');
   };
 
   return (
     <SafeAreaView style={styles.safe}>
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
+      <View style={styles.topHeader}>
+        <View style={styles.driverInfoRow}>
+          <Avatar 
+            name={driver?.name || 'Partner'} 
+            source={driver?.profileImage}
+            size={46} 
+            showActiveDot={isOnline}
+          />
+          <View style={{ marginLeft: 12 }}>
+            <Text style={styles.welcomeText}>Partner Portal</Text>
+            <Text style={styles.driverName}>{driver?.name || 'Cargex Partner'}</Text>
+          </View>
+        </View>
+        <TouchableOpacity style={styles.notificationBtn} activeOpacity={0.7}>
+          <Bell size={20} color={COLORS.primary} />
+          {availableJobs.length > 0 && <View style={styles.badgeDot} />}
+        </TouchableOpacity>
+      </View>
+
       <ScrollView
-        contentContainerStyle={styles.container}
+        contentContainerStyle={styles.scrollContainer}
+        showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={() => { setIsRefreshing(true); fetchDriverData(); }} colors={[COLORS.accent]} />
+          <RefreshControl 
+            refreshing={isRefreshing} 
+            onRefresh={() => { setIsRefreshing(true); fetchDriverData(); }} 
+            colors={[COLORS.accent]} 
+          />
         }
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.welcome}>Driver portal</Text>
-            <Text style={styles.subwelcome}>{driver?.name || 'Partner'}</Text>
-          </View>
-          <TouchableOpacity style={styles.logoutBtn} onPress={logout}>
-            <LogOut size={20} color={COLORS.muted} />
-          </TouchableOpacity>
-        </View>
-
-        {/* Online / Offline switch */}
-        <View style={[styles.switchCard, isOnline ? styles.onlineCard : styles.offlineCard]}>
-          <View>
-            <Text style={styles.switchTitle}>Availability</Text>
-            <Text style={styles.switchStatus}>You are currently {isOnline ? 'ONLINE' : 'OFFLINE'}</Text>
+        {/* Availability Toggle */}
+        <Card 
+          variant={isOnline ? 'elevated' : 'outlined'} 
+          style={[styles.switchCard, isOnline ? styles.onlineCard : styles.offlineCard]}
+          padding="md"
+        >
+          <View style={styles.switchInfo}>
+            <Text style={styles.switchTitle}>Availability Status</Text>
+            <Text style={styles.switchStatus}>
+              {isOnline ? 'ONLINE & ACCEPTING DISPATCHES' : 'OFFLINE (TAP SWITCH TO GO LIVE)'}
+            </Text>
           </View>
           <Switch
             value={isOnline}
             onValueChange={handleToggleOnline}
-            trackColor={{ false: '#767577', true: '#86EFAC' }}
+            trackColor={{ false: COLORS.border, true: '#86EFAC' }}
             thumbColor={isOnline ? COLORS.accent : '#f4f3f4'}
           />
-        </View>
+        </Card>
 
         {/* Stats Grid */}
         <Text style={styles.sectionHeader}>Performance Overview</Text>
         <View style={styles.statsGrid}>
-          <View style={styles.statCard}>
-            <DollarSign size={24} color={COLORS.accent} />
+          <Card variant="outlined" style={styles.statCard} padding="md">
+            <View style={styles.statIconRow}>
+              <View style={[styles.iconBox, { backgroundColor: '#ECFDF5' }]}>
+                <DollarSign size={20} color={COLORS.accent} />
+              </View>
+              <View style={styles.ratingLabelRow}>
+                <Star size={12} color="#FBBF24" fill="#FBBF24" style={{ marginRight: 2 }} />
+                <Text style={styles.ratingText}>4.9</Text>
+              </View>
+            </View>
             <Text style={styles.statVal}>₹{stats.todayEarnings.toLocaleString()}</Text>
             <Text style={styles.statLabel}>Today's Earnings</Text>
-          </View>
+          </Card>
 
-          <View style={styles.statCard}>
-            <Landmark size={24} color={COLORS.blue} />
+          <Card variant="outlined" style={styles.statCard} padding="md">
+            <View style={styles.statIconRow}>
+              <View style={[styles.iconBox, { backgroundColor: '#EFF6FF' }]}>
+                <Landmark size={20} color={COLORS.blue} />
+              </View>
+            </View>
             <Text style={styles.statVal}>₹{stats.totalEarnings.toLocaleString()}</Text>
-            <Text style={styles.statLabel}>Total Earnings</Text>
-          </View>
+            <Text style={styles.statLabel}>Wallet Balance</Text>
+          </Card>
 
-          <View style={styles.statCard}>
-            <Truck size={24} color="#EA580C" />
-            <Text style={styles.statVal}>{stats.completedRides}</Text>
-            <Text style={styles.statLabel}>Completed Rides</Text>
-          </View>
+          <Card variant="outlined" style={[styles.statCard, { width: '100%' }]} padding="md">
+            <View style={styles.driverCapacityRow}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <View style={[styles.iconBox, { backgroundColor: '#FFF7ED' }]}>
+                  <Truck size={20} color="#EA580C" />
+                </View>
+                <View style={{ marginLeft: 12 }}>
+                  <Text style={styles.capacityTitle}>Completed Dispatches</Text>
+                  <Text style={styles.capacityLabel}>{stats.completedRides} successful trips</Text>
+                </View>
+              </View>
+              <View style={styles.goalMeter}>
+                <Text style={styles.goalMeterText}>92% Acc.</Text>
+              </View>
+            </View>
+          </Card>
         </View>
 
-        {/* Active Trip Navigation Card */}
+        {/* Active Trip Banner */}
         {rideStatus === 'active' && activeBooking && (
-          <View style={{ marginTop: 20 }}>
-            <Text style={styles.sectionHeader}>Active Trip</Text>
-            <TouchableOpacity
-              style={styles.activeCard}
+          <View style={styles.activeTripContainer}>
+            <Text style={styles.sectionHeader}>Ongoing Navigation</Text>
+            <TouchableOpacity 
+              activeOpacity={0.95}
               onPress={() => navigation.navigate('TripDetails', { bookingId: activeBooking._id })}
             >
-              <Text style={styles.activeTitle}>Ongoing Logistics Order</Text>
-              <Text style={styles.activeSub}>Tap to view pickup guidelines and complete routing map.</Text>
-              <Text style={styles.activeRouteText}>
-                {activeBooking.pickupLocation?.address.split(',')[0]} → {activeBooking.dropLocation?.address.split(',')[0]}
-              </Text>
+              <Card variant="elevated" style={styles.activeTripCard} padding="md">
+                <View style={styles.activeTripHeader}>
+                  <View style={styles.pulseContainer}>
+                    <View style={styles.pulseDot} />
+                    <Text style={styles.activeTripTitle}>ACTIVE LOGISTICS TRIP</Text>
+                  </View>
+                  <Badge status="in_progress" />
+                </View>
+                <Text style={styles.activeTripDesc}>
+                  You have an active dispatch order in progress. Tap to open real-time Leaflet tracking directions and verify OTP handshakes.
+                </Text>
+                <Text style={styles.activeTripRoute}>
+                  {activeBooking.pickupLocation?.address.split(',')[0]} → {activeBooking.dropLocation?.address.split(',')[0]}
+                </Text>
+              </Card>
             </TouchableOpacity>
           </View>
         )}
 
-        {/* Job Board */}
+        {/* Job Board Section */}
         {rideStatus !== 'active' && (
-          <View style={{ marginTop: 20 }}>
+          <View style={styles.jobBoardContainer}>
             <Text style={styles.sectionHeader}>Available Dispatches</Text>
-            {availableJobs.length > 0 ? (
+            {isLoading ? (
+              <Loader variant="shimmer" height={120} />
+            ) : availableJobs.length > 0 ? (
               availableJobs.map((job: any) => {
                 const amount = job.pricing?.totalFare || job.price?.total || 0;
                 return (
-                  <View key={job._id} style={styles.jobCard}>
+                  <Card key={job._id} variant="outlined" style={styles.jobCard} padding="md">
                     <View style={styles.jobCardHeader}>
-                      <Text style={styles.jobVehicle}>{job.vehicleType} | {job.category || 'Goods'}</Text>
+                      <View style={styles.vehicleCategoryBadge}>
+                        <Truck size={14} color={COLORS.primary} style={{ marginRight: 6 }} />
+                        <Text style={styles.jobVehicleText}>{job.vehicleType} | {job.category}</Text>
+                      </View>
                       <Text style={styles.jobPrice}>₹{amount.toLocaleString()}</Text>
                     </View>
-                    
-                    <View style={styles.jobRoute}>
-                      <Text style={styles.jobRouteText} numberOfLines={1}>📍 {job.pickupLocation?.address}</Text>
-                      <Text style={styles.jobRouteText} numberOfLines={1}>🏁 {job.dropLocation?.address}</Text>
+
+                    <View style={styles.jobRoutes}>
+                      <Text style={styles.routeText} numberOfLines={1}>📍 {job.pickupLocation?.address}</Text>
+                      <View style={styles.verticalBorderLine} />
+                      <Text style={styles.routeText} numberOfLines={1}>🏁 {job.dropLocation?.address}</Text>
                     </View>
 
                     <TouchableOpacity 
-                      style={styles.jobAcceptBtn}
+                      style={styles.acceptBtn}
+                      activeOpacity={0.8}
                       onPress={async () => {
                         try {
                           setIsLoading(true);
@@ -247,52 +321,57 @@ export default function DashboardScreen({ navigation }: any) {
                         }
                       }}
                     >
-                      <Text style={styles.jobAcceptBtnText}>Accept Dispatch</Text>
+                      <Text style={styles.acceptBtnText}>Accept Dispatch</Text>
                     </TouchableOpacity>
-                  </View>
+                  </Card>
                 );
               })
             ) : (
-              <View style={styles.emptyJobs}>
-                <Text style={styles.emptyJobsText}>No public dispatches currently available.</Text>
-                <Text style={styles.emptyJobsSub}>You will be notified via socket in real-time when new bookings are placed.</Text>
-              </View>
+              <Card variant="solid" style={styles.emptyCard} padding="lg">
+                <Compass size={32} color={COLORS.textLight} />
+                <Text style={styles.emptyTitle}>Looking for dispatches...</Text>
+                <Text style={styles.emptySub}>
+                  You are currently online. When users nearby book rides matching your transport vehicle type, they will appear here.
+                </Text>
+              </Card>
             )}
           </View>
         )}
 
-        {/* Incoming requests overlay */}
+        {/* Incoming dispatch overlay alert */}
         {rideStatus === 'incoming' && activeBooking && (
-          <View style={styles.alertOverlay}>
-            <View style={styles.alertCard}>
-              <View style={styles.pulseContainer}>
+          <View style={styles.incomingOverlay}>
+            <Card variant="elevated" style={styles.incomingCard} padding="md">
+              <View style={styles.pulseHeader}>
                 <View style={styles.pulseDot} />
-                <Text style={styles.alertHeader}>INCOMING DISPATCH REQUEST</Text>
+                <Text style={styles.pulseHeaderText}>INCOMING RIDE DISPATCH</Text>
               </View>
 
-              <Text style={styles.alertRouteTitle}>Pickup Location</Text>
-              <Text style={styles.alertRouteVal} numberOfLines={2}>{activeBooking.pickupLocation?.address}</Text>
+              <View style={styles.incomingDetails}>
+                <Text style={styles.locLabel}>PICKUP</Text>
+                <Text style={styles.locVal} numberOfLines={1}>{activeBooking.pickupLocation?.address}</Text>
 
-              <Text style={styles.alertRouteTitle}>Dropoff Location</Text>
-              <Text style={styles.alertRouteVal} numberOfLines={2}>{activeBooking.dropLocation?.address}</Text>
+                <Text style={styles.locLabel}>DROPOFF</Text>
+                <Text style={styles.locVal} numberOfLines={1}>{activeBooking.dropLocation?.address}</Text>
 
-              <View style={styles.alertMetaRow}>
-                <Text style={styles.alertMetaText}>Distance: {activeBooking.distance} km</Text>
-                <Text style={styles.alertMetaPrice}>Payout: ₹{activeBooking.pricing?.totalFare || activeBooking.price?.total || 0}</Text>
+                <View style={styles.incomingMeta}>
+                  <Text style={styles.metaLabel}>Distance: {activeBooking.distance} km</Text>
+                  <Text style={styles.metaPrice}>₹{(activeBooking.pricing?.totalFare || activeBooking.price?.total || 0).toLocaleString()}</Text>
+                </View>
               </View>
 
-              <View style={styles.alertBtnRow}>
-                <TouchableOpacity style={[styles.alertBtn, styles.declineBtn]} onPress={handleDeclineRide}>
-                  <X size={20} color={COLORS.red} style={{ marginRight: 6 }} />
-                  <Text style={[styles.alertBtnText, { color: COLORS.red }]}>Decline</Text>
+              <View style={styles.overlayButtons}>
+                <TouchableOpacity style={[styles.actionBtn, styles.declineBtn]} onPress={handleDeclineRide} activeOpacity={0.8}>
+                  <X size={18} color={COLORS.error} style={{ marginRight: 4 }} />
+                  <Text style={[styles.actionBtnText, { color: COLORS.error }]}>Decline</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={[styles.alertBtn, styles.acceptBtn]} onPress={handleAcceptRide}>
-                  <Check size={20} color={COLORS.white} style={{ marginRight: 6 }} />
-                  <Text style={[styles.alertBtnText, { color: COLORS.white }]}>Accept</Text>
+                <TouchableOpacity style={[styles.actionBtn, styles.confirmBtn]} onPress={handleAcceptRide} activeOpacity={0.8}>
+                  <Check size={18} color={COLORS.white} style={{ marginRight: 4 }} />
+                  <Text style={[styles.actionBtnText, { color: COLORS.white }]}>Accept</Text>
                 </TouchableOpacity>
               </View>
-            </View>
+            </Card>
           </View>
         )}
       </ScrollView>
@@ -305,259 +384,379 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: COLORS.background,
   },
-  jobCard: {
-    backgroundColor: COLORS.background,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 10,
-    padding: SPACING.md,
-    marginBottom: SPACING.sm,
-    ...SHADOWS.sm,
-  },
-  jobCardHeader: {
+  topHeader: {
+    height: 72,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    paddingHorizontal: SPACING.md,
+    backgroundColor: COLORS.card,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.border,
   },
-  jobVehicle: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: COLORS.primary,
-  },
-  jobPrice: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: COLORS.accent,
-  },
-  jobRoute: {
-    marginBottom: 12,
-  },
-  jobRouteText: {
-    fontSize: 12,
-    color: COLORS.muted,
-    marginVertical: 2,
-  },
-  jobAcceptBtn: {
-    backgroundColor: COLORS.primary,
-    paddingVertical: 8,
-    borderRadius: 6,
-    alignItems: 'center',
-  },
-  jobAcceptBtnText: {
-    color: COLORS.white,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  emptyJobs: {
-    backgroundColor: COLORS.background,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 10,
-    padding: SPACING.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emptyJobsText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: COLORS.foreground,
-    textAlign: 'center',
-  },
-  emptyJobsSub: {
-    fontSize: 11,
-    color: COLORS.muted,
-    textAlign: 'center',
-    marginTop: 4,
-  },
-  container: {
-    padding: SPACING.md,
-    paddingBottom: 40,
-  },
-  header: {
+  driverInfoRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginVertical: SPACING.sm,
   },
-  welcome: {
-    fontSize: 14,
-    color: COLORS.muted,
+  welcomeText: {
+    fontSize: 12,
+    color: COLORS.textMuted,
+    fontWeight: '600',
   },
-  subwelcome: {
-    fontSize: 24,
-    fontWeight: '800',
+  driverName: {
+    fontSize: 16,
+    fontWeight: '900',
     color: COLORS.primary,
     marginTop: 2,
   },
-  logoutBtn: {
-    padding: SPACING.sm,
-    borderRadius: 8,
+  notificationBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: COLORS.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  badgeDot: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: COLORS.accent,
+    borderWidth: 1.5,
+    borderColor: COLORS.surface,
+  },
+  scrollContainer: {
+    padding: SPACING.md,
+    paddingBottom: 110,
   },
   switchCard: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: SPACING.md,
-    borderRadius: 12,
-    marginVertical: SPACING.lg,
-    borderWidth: 1,
+    borderWidth: 1.5,
+    marginBottom: SPACING.lg,
   },
   onlineCard: {
     backgroundColor: '#F0FDF4',
     borderColor: '#BBF7D0',
   },
   offlineCard: {
-    backgroundColor: COLORS.surfaceHighlight,
+    backgroundColor: COLORS.card,
     borderColor: COLORS.border,
   },
+  switchInfo: {
+    flex: 1,
+    marginRight: SPACING.md,
+  },
   switchTitle: {
-    fontSize: 12,
-    color: COLORS.muted,
-    fontWeight: '700',
+    fontSize: 11,
+    fontWeight: '800',
+    color: COLORS.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   switchStatus: {
-    fontSize: 16,
-    fontWeight: '800',
+    fontSize: 14,
+    fontWeight: '900',
     color: COLORS.primary,
     marginTop: 2,
   },
   sectionHeader: {
-    fontSize: 18,
-    fontWeight: '800',
+    fontSize: 16,
+    fontWeight: '900',
     color: COLORS.primary,
     marginBottom: SPACING.md,
+    letterSpacing: -0.3,
   },
   statsGrid: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     flexWrap: 'wrap',
+    marginBottom: SPACING.md,
   },
   statCard: {
     width: '48%',
-    backgroundColor: COLORS.background,
+    backgroundColor: COLORS.card,
+    marginBottom: SPACING.md,
     borderWidth: 1,
     borderColor: COLORS.border,
-    borderRadius: 12,
-    padding: SPACING.md,
+  },
+  statIconRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: SPACING.md,
-    ...SHADOWS.sm,
+  },
+  iconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ratingLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFBEB',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+  },
+  ratingText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#D97706',
   },
   statVal: {
     fontSize: 22,
     fontWeight: '900',
-    color: COLORS.foreground,
-    marginVertical: SPACING.xs,
+    color: COLORS.primary,
+    letterSpacing: -0.5,
   },
   statLabel: {
     fontSize: 12,
-    color: COLORS.muted,
+    color: COLORS.textMuted,
     fontWeight: '600',
+    marginTop: 2,
   },
-  activeCard: {
-    backgroundColor: COLORS.primary,
-    padding: SPACING.md,
-    borderRadius: 12,
-    ...SHADOWS.md,
+  driverCapacityRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  activeTitle: {
-    color: COLORS.white,
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  activeSub: {
-    color: '#D1D5DB',
-    fontSize: 12,
-    marginTop: 4,
-  },
-  activeRouteText: {
-    color: COLORS.accent,
+  capacityTitle: {
     fontSize: 14,
-    fontWeight: '700',
-    marginTop: SPACING.md,
+    fontWeight: '800',
+    color: COLORS.primary,
   },
-  alertOverlay: {
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    padding: SPACING.md,
-    borderRadius: 16,
-    marginTop: 20,
+  capacityLabel: {
+    fontSize: 12,
+    color: COLORS.textMuted,
+    fontWeight: '500',
+    marginTop: 1,
   },
-  alertCard: {
-    backgroundColor: COLORS.background,
-    borderRadius: 12,
-    padding: SPACING.md,
-    ...SHADOWS.md,
+  goalMeter: {
+    backgroundColor: '#EFF6FF',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+  },
+  goalMeterText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: COLORS.blue,
+  },
+  activeTripContainer: {
+    marginBottom: SPACING.lg,
+  },
+  activeTripCard: {
+    backgroundColor: COLORS.primary,
+  },
+  activeTripHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: SPACING.sm,
   },
   pulseContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: SPACING.md,
   },
   pulseDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
     backgroundColor: COLORS.accent,
-    marginRight: 8,
+    marginRight: 6,
   },
-  alertHeader: {
-    fontSize: 12,
-    fontWeight: '800',
+  activeTripTitle: {
+    fontSize: 11,
     color: COLORS.accent,
-    letterSpacing: 1,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
-  alertRouteTitle: {
-    fontSize: 10,
-    color: COLORS.muted,
-    fontWeight: '700',
-    marginTop: SPACING.xs,
+  activeTripDesc: {
+    color: '#9CA3AF',
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '500',
   },
-  alertRouteVal: {
+  activeTripRoute: {
     fontSize: 14,
-    color: COLORS.foreground,
-    fontWeight: '600',
-    marginBottom: SPACING.xs,
+    fontWeight: '800',
+    color: COLORS.white,
+    marginTop: SPACING.md,
   },
-  alertMetaRow: {
+  jobBoardContainer: {
+    marginBottom: SPACING.md,
+  },
+  jobCard: {
+    marginBottom: SPACING.md,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    backgroundColor: COLORS.card,
+  },
+  jobCardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginVertical: SPACING.md,
+    marginBottom: SPACING.md,
   },
-  alertMetaText: {
-    fontSize: 14,
-    color: COLORS.muted,
-    fontWeight: '600',
+  vehicleCategoryBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 6,
   },
-  alertMetaPrice: {
-    fontSize: 18,
+  jobVehicleText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: COLORS.primary,
+  },
+  jobPrice: {
+    fontSize: 20,
     fontWeight: '900',
     color: COLORS.accent,
   },
-  alertBtnRow: {
+  jobRoutes: {
+    marginBottom: SPACING.md,
+    paddingLeft: 4,
+  },
+  routeText: {
+    fontSize: 13,
+    color: COLORS.text,
+    fontWeight: '600',
+  },
+  verticalBorderLine: {
+    height: 12,
+    width: 1.5,
+    backgroundColor: COLORS.border,
+    marginLeft: 7,
+    marginVertical: 2,
+  },
+  acceptBtn: {
+    backgroundColor: COLORS.primary,
+    paddingVertical: 12,
+    borderRadius: BORDER_RADIUS.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...SHADOWS.sm,
+  },
+  acceptBtnText: {
+    color: COLORS.white,
+    fontWeight: '800',
+    fontSize: 14,
+  },
+  emptyCard: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: BORDER_RADIUS.md,
+    textAlign: 'center',
+    paddingVertical: 40,
+  },
+  emptyTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: COLORS.primary,
+    marginTop: SPACING.md,
+  },
+  emptySub: {
+    fontSize: 12,
+    color: COLORS.textMuted,
+    textAlign: 'center',
+    marginTop: SPACING.xs,
+    paddingHorizontal: SPACING.md,
+    lineHeight: 18,
+    fontWeight: '500',
+  },
+  incomingOverlay: {
+    marginTop: SPACING.md,
+    backgroundColor: 'rgba(17,17,17,0.02)',
+  },
+  incomingCard: {
+    backgroundColor: COLORS.card,
+    borderWidth: 1.5,
+    borderColor: COLORS.accent,
+    ...SHADOWS.lg,
+  },
+  pulseHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SPACING.md,
+  },
+  pulseHeaderText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: COLORS.accent,
+    letterSpacing: 0.5,
+  },
+  incomingDetails: {
+    marginBottom: SPACING.md,
+  },
+  locLabel: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: COLORS.textMuted,
+    letterSpacing: 0.5,
+  },
+  locVal: {
+    fontSize: 13,
+    color: COLORS.primary,
+    fontWeight: '700',
+    marginBottom: SPACING.sm,
+    marginTop: 2,
+  },
+  incomingMeta: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: SPACING.sm,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+    paddingTop: SPACING.md,
   },
-  alertBtn: {
+  metaLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.textMuted,
+  },
+  metaPrice: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: COLORS.accent,
+  },
+  overlayButtons: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: SPACING.sm,
+  },
+  actionBtn: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 12,
-    borderRadius: 8,
-    marginHorizontal: 4,
+    borderRadius: BORDER_RADIUS.md,
   },
   declineBtn: {
     backgroundColor: '#FEF2F2',
     borderWidth: 1,
     borderColor: '#FCA5A5',
   },
-  acceptBtn: {
+  confirmBtn: {
     backgroundColor: COLORS.primary,
   },
-  alertBtnText: {
+  actionBtnText: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '800',
   },
 });
