@@ -24,10 +24,8 @@
       "favicon": "./assets/favicon.png"
     },
     "extra": {
-      "eas": {
-        "projectId": "718c8bb4-12fe-4d20-a50c-1c0fc7e6b9d6"
-      }
+      "eas": {}
     },
-    "owner": "akashyadav1284"
+    "owner": "akashyadav1285"
   }
 }
