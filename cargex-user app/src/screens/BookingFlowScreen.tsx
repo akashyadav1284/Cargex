@@ -375,29 +375,32 @@ export default function BookingFlowScreen({ navigation }: any) {
             </View>
 
             <View style={styles.list}>
-              {cargoTypes.map((cargo) => (
-                <Card
-                  key={cargo._id || cargo.name}
-                  onPress={() => setSelectedCargo(cargo)}
-                  variant={selectedCargo?._id === cargo._id ? 'flat' : 'outlined'}
-                  style={[
-                    styles.cargoCard,
-                    selectedCargo?._id === cargo._id ? { borderColor: COLORS.secondary, borderWidth: 1.5 } : undefined
-                  ] as any}
-                >
-                  <View style={styles.categoryRow}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.categoryName}>{cargo.name}</Text>
-                      {cargo.description ? (
-                        <Text style={styles.cargoDesc}>{cargo.description}</Text>
-                      ) : null}
+              {cargoTypes.map((cargo) => {
+                const isSelected = selectedCargo?._id === cargo._id;
+                return (
+                  <Card
+                    key={cargo._id || cargo.name}
+                    onPress={() => setSelectedCargo(cargo)}
+                    variant={isSelected ? 'elevated' : 'outlined'}
+                    style={[
+                      styles.cargoCard,
+                      isSelected ? { backgroundColor: '#F0FDF4', borderColor: COLORS.secondary, borderWidth: 1.5 } : undefined
+                    ] as any}
+                  >
+                    <View style={styles.categoryRow}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.categoryName}>{cargo.name}</Text>
+                        {cargo.description ? (
+                          <Text style={styles.cargoDesc}>{cargo.description}</Text>
+                        ) : null}
+                      </View>
+                      {isSelected && (
+                        <Check size={20} color={COLORS.secondary} />
+                      )}
                     </View>
-                    {selectedCargo?._id === cargo._id && (
-                      <Check size={20} color={COLORS.secondary} />
-                    )}
-                  </View>
-                </Card>
-              ))}
+                  </Card>
+                );
+              })}
             </View>
 
             {/* Load Type Select */}
@@ -545,10 +548,10 @@ export default function BookingFlowScreen({ navigation }: any) {
                   <Card
                     key={rec.vehicleTypeId}
                     onPress={() => setSelectedVehicle(rec)}
-                    variant={isSelected ? 'flat' : 'outlined'}
+                    variant={isSelected ? 'elevated' : 'outlined'}
                     style={[
                       styles.vehicleCard,
-                      isSelected ? { borderColor: COLORS.secondary, borderWidth: 1.5 } : undefined
+                      isSelected ? { backgroundColor: '#F0FDF4', borderColor: COLORS.secondary, borderWidth: 1.5 } : undefined
                     ] as any}
                   >
                     <View style={styles.vehicleRow}>
@@ -685,7 +688,7 @@ const styles = StyleSheet.create({
   },
   container: {
     paddingHorizontal: SPACING.lg,
-    paddingBottom: SPACING.xl,
+    paddingBottom: 130,
   },
   stepBadge: {
     paddingHorizontal: 8,
