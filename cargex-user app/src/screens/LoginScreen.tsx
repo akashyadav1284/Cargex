@@ -26,7 +26,7 @@ export default function LoginScreen({ navigation }: any) {
 
   useEffect(() => {
     GoogleSignin.configure({
-      webClientId: '209884063738-6bsqm3krnfh2hrqi6s2kc7fsheg5oh83.apps.googleusercontent.com',
+      webClientId: '209884063738-okknacocdamdbio3pdr65mbmkh1o7418.apps.googleusercontent.com',
       offlineAccess: true,
     });
   }, []);
