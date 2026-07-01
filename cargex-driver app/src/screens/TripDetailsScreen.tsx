@@ -346,17 +346,10 @@ export default function TripDetailsScreen({ route, navigation }: any) {
 
         {/* Expected OTP Badges for verification */}
         <View style={styles.otpHelperRow}>
-          <Text style={styles.otpHelperTitle}>Verification Codes (OTPs):</Text>
-          <View style={styles.otpBadges}>
-            <View style={styles.otpBadge}>
-              <Text style={styles.otpBadgeLabel}>Pickup OTP: </Text>
-              <Text style={styles.otpBadgeVal}>{expectedPickupOtp}</Text>
-            </View>
-            <View style={styles.otpBadge}>
-              <Text style={styles.otpBadgeLabel}>Drop OTP: </Text>
-              <Text style={styles.otpBadgeVal}>{expectedDropOtp}</Text>
-            </View>
-          </View>
+          <Text style={styles.otpHelperTitle}>Secure Verification Handshake Required</Text>
+          <Text style={styles.otpHelperSub}>
+            Please ask the customer for the verification OTP code to proceed with loading (pickup) or unloading (dropoff).
+          </Text>
         </View>
 
         {!isCompleted && !showOtpPrompt && (
@@ -499,23 +492,11 @@ const styles = StyleSheet.create({
     color: COLORS.blue,
     marginBottom: 4,
   },
-  otpBadges: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  otpBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  otpBadgeLabel: {
+  otpHelperSub: {
     fontSize: 11,
-    color: COLORS.muted,
-    fontWeight: '600',
-  },
-  otpBadgeVal: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: COLORS.primary,
+    color: '#1E40AF',
+    fontWeight: '500',
+    lineHeight: 16,
   },
   progressBtn: {
     backgroundColor: COLORS.primary,
